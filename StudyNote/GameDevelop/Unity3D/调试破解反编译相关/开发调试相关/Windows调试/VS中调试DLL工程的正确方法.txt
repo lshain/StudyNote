@@ -1,0 +1,26 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-31T23:41:19+08:00
+
+====== VS中调试DLL工程的正确方法 ======
+Created 星期日 31 一月 2016
+
+===== VS中调试DLL工程的正确方法 =====
+
+1 将DLL工程设置为启动工程
+（只有这样调试器才会挂接到DLL工程上）
+
+2 右键单击DLL工程，选择属性（Properties)进入属性设置页面。在左边Congifure Properties下面选择Debugging
+
+3 在右边Debuggers to launch选择Local Windows Debugger
+
+4 在下面Command一览中点击右边的箭头，按浏览，之后选择会调用你代码的应用程序。
+
+5 在Debugger Type里面选择Mixed
+（这是最重要的一步，一般来说默认的Auto。但是是Auto不出来的。如果是托管代码调用你的DLL，比如一个C#应用程序调用DLL，那么你就选Managed Only，如果是一个本地代码掉用你的DLL，比如C++应用程序，那么就选Native Only。很明显Mixed包含了这两类，选择果断选Mixed）
+
+6 DLL工程 输出目录选择 调用这个dll的exe文件目录。
+
+7 其它DLL工程 输出目录选择 调用这个dll的exe文件目录。
+
+===== 特别注意： debug 模式下 编译所有 DLL~~~~ =====

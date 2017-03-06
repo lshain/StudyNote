@@ -1,0 +1,87 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T17:30:59+08:00
+
+====== 过滤多余的材质 ======
+Created 星期一 09 一月 2017
+
+Unity可以勾选static来进行静态合批， 运行时也可以 StaticBatchingUtility.Combine()来进行合批。但是你仔细观察一下。。
+
+如下图所示，这里我有两个相同Shader、相同参数的材质。
+{{./1.png}}
+{{./2.png}}
+
+我都勾选了static以后运行发现dc还是会多一个。因为unity不会帮你自动合并这种情况的材质。如果你打包成android的apk后，解开包可以看见这里还是会有两个文件， GUID对应的就是这两个材质。因为场景里有地方分别引用了这两个材质。
+
+所以项目里如果这种材质比较多的话， 会增加DrawCall 、Android平台下的话多少也会影响安装速度。（一两个可能看不出来，优化效率是积少成多能避免则避免）
+
+为什么会这样？
+
+1.Unity会自动根据fbx来生成一个对应的材质文件。（虽然可以禁止FBX生成材质，但是2号问题没法让美术避免）
+
+2.美术在做场景的时候可能会无意间创建出来很多相同shader、相同参数、相同贴图、的材质出来。（个人觉得这个很难让美术避免）
+
+如何解决这个问题？
+
+1.美术来避免，我觉得很难。因为美术做场景都是一点点做。发现这里少个材质，自己就创建一个。发现需要某个shader自己就选一个。 做着做着他们也不知道自己之前有没有用过相同的材质。。所以冗余材质自然就出来了。。。
+
+2.程序来做检查了。
+
+Unity没有提供这样的API。但是我想了一个办法来判断两个不同文件的材质是否参数完全相同。就是利用unity的forceText 来对比。如果两个材质完全一样，除了名字以外别的信息是完全一样的。。
+
+	static bool Compare(Material m1, Material m2)
+	{
+		EditorSettings.serializationMode = SerializationMode.ForceText;
+		string m1Path = AssetDatabase.GetAssetPath(m1);
+		string m2Path = AssetDatabase.GetAssetPath(m2);
+ 
+ 
+		if(!string.IsNullOrEmpty(m1Path) && !string.IsNullOrEmpty(m2Path))
+		{
+			string rootPath = Directory.GetCurrentDirectory();
+			m1Path = Path.Combine(rootPath,m1Path);
+			m2Path = Path.Combine(rootPath,m2Path);
+ 
+			string text1 = File.ReadAllText(m1Path).Replace(" m_Name: " + m1.name ,"");
+			string text2 = File.ReadAllText(m2Path).Replace(" m_Name: " + m2.name ,"");
+			return (text1 == text2);
+		}
+		return false;
+	}
+
+我又做了一个方法来批量合并替换当前场景重复的Material，原理就是查找所有的MeshRenderer找到相同的就合并。（算法还有优化空间， 不过我测试了一下我们场景速度还可以接受）
+
+		static private void DeleteSameMaterial ()
+		{
+			Dictionary<string,string> dicMaterial = new Dictionary<string, string>();
+			MeshRenderer[] meshRenderers = Resources.FindObjectsOfTypeAll<MeshRenderer>();
+			string rootPath = Directory.GetCurrentDirectory();
+			for(int i =0; i< meshRenderers.Length; i++)
+			{
+				MeshRenderer meshRender = meshRenderers[i];
+				Material[] newMaterials = new Material[meshRender.sharedMaterials.Length] ;
+				for(int j =0; j < meshRender.sharedMaterials.Length; j++)
+				{
+					Material m =  meshRender.sharedMaterials[j];
+ 
+					string mPath = AssetDatabase.GetAssetPath(m);
+					if(!string.IsNullOrEmpty(mPath) && mPath.Contains("Assets/"))
+					{
+						string fullPath = Path.Combine(rootPath,mPath);
+						string text = File.ReadAllText(fullPath).Replace(" m_Name: " + m.name ,"");
+ 
+						string change;
+						if(!dicMaterial.TryGetValue(text,out change))
+						{
+							dicMaterial[text] =  mPath;
+							change = mPath;
+						}
+						newMaterials[j] = AssetDatabase.LoadAssetAtPath<Material>(change);
+					}
+				}
+				meshRender.sharedMaterials = newMaterials;
+			}
+		}
+
+在一个合适的地方标记一下 EditorSceneManager.MarkAllScenesDirty(); 不然有可能没法保存～
+

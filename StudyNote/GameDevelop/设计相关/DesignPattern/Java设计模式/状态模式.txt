@@ -1,0 +1,60 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-16T00:00:44+08:00
+
+====== 状态模式 ======
+Created 星期二 16 八月 2016
+
+状态模式：允许对象在内部状态改变时改变它的行为，对象看起来好像修改了它的类。以下是例子：
+
+public interface Weather {  
+	String getWeather(); 
+}
+
+public class Rain implements Weather {  
+	public String getWeather() { 
+		return "下雨"; 
+	} 
+}
+
+public class Sunshine implements Weather {  
+	public String getWeather() { 
+		return "阳光"; 
+	} 
+}
+	
+public class Context {  
+	private Weather weather;
+
+	public void setWeather(Weather weather){
+		this.weather = weather; 
+	}
+
+	public Weather getWeather(){
+		return weather; 
+	}
+
+	public String weatherMessage(){
+		return weather.getWeather(); 
+	} 
+}
+
+//测试类
+public class Test {  
+	public static void main(String[] args) {
+		Context ctx1 = new Context();
+
+		ctx1.setWeather(new Sunshine());
+
+		System.out.println(ctx1.weatherMessage());
+
+		System.out.println("==============");
+
+		Context ctx2 = new Context();
+
+		ctx2.setWeather(new Rain());
+
+		System.out.println(ctx2.weatherMessage()); 
+	} 
+}
+

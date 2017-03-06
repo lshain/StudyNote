@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-12T11:33:40+08:00
+
+====== 4 Objects with Multiple Moving Parts ======
+Created 星期二 12 四月 2016
+
+===== Objects with Multiple Moving Parts =====
+You may want to animate Game Objects that have multiple moving parts, such as a gun turret with a moving barrel, or a character with many body parts. All the parts can be animated by a single Animation component on the parent, although it is useful to have additional Animation components on the children in some cases.
+
+===== Animating Child Game Objects =====
+The Game Object hierarchy is shown in the panel to the left of the Animation View.
+
+You can access the children of a Game Object by using the foldout triangle next to the object’s name. The properties of child objects can be animated just like those of the parent.
+{{./1.png}}
+Child Game Objects appear in the list of animatable properties when pressing the Add Curve button. They can be expanded to view the animatable properties on those child Game ObjectsAnimation View.
+
+Alternatively you can select just the child Game Object you want to animate from the Hierarchy panel or the scene view, and maniuplate the object or change its properties in the inspector, while in animation recording mode.

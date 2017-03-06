@@ -1,0 +1,10 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-11T13:39:19+08:00
+
+====== Animation ======
+Created 星期一 11 四月 2016
+
+Unity’s Animation features include Retargetable animations, Full control of animation weights at runtime, Event calling from within the animation playback, Sophisticated State Machine hierarchies and transitions, Blend shapes for facial animations, and more.
+
+Read this section to find out how to import and work with imported animation and how to animate objects, colours, and any other parameters within Unity itself.

@@ -1,0 +1,188 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-15T17:37:40+08:00
+
+====== 7 Diffuse Shading-使用2D ramp texture来创建一个假的BRDF（双向反射分布函数） ======
+Created 星期三 15 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17485631
+
+终于到了Diffuse Shading一章的最后一篇了！回忆一下，在上一篇中，一共学习了两种改善漫反射光照的方法：一种是完全根据感性认识，使用Half Lembert方法改变了光照值区间，使得物体颜色整体提亮；一种是通过一张渐变图，来控制光照值。
+这两种方法都只考虑到了入射光线和反射点所在的平面法向量的夹角，但是想象实际生活中我们观察一个物体，即便是在相同的光照下观察物体的同一点，如果我们观察位置有所改变，看到的结果也会不一样。因此，这一篇中，我们将引入这一新的参数：view direction——观察点方向。
+为了达到这一目的，我们使用一张二维的渐变图来代替之前的一维渐变图（因为在之前的方法中，我们仅使用一个参数就决定了该图的采样位置），使用两个参数来决定采样的真正的UV坐标：一个参数由入射光线和平面法向量计算而得，一个由观察点方向和平面法向量计算而得。
+
+=== BRDF ===
+BRDF是bidirectional reflectance distribution function的简写。这名字很长，翻译过来就是双向反射分布函数。简单说，就是考虑光线是如何从一个入射角度（the light direction）在一个不透明平面上反射到某一个观察者的眼睛（the view direction）里的。
+
+=== 准备工作 ===
+1. 还是需要上一篇结束时的代码：
+Shader "Custom/RampDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+		_RampTex ("Ramp Texture", 2D) = "white"{}  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf BasicDiffuse  
+          
+		float4 _EmissiveColor;  
+		float4 _AmbientColor;  
+		float _MySliderValue;  
+		sampler2D _RampTex;  
+          
+		struct Input  
+		{  
+			float2 uv_MainTex;  
+		};  
+          
+		void surf (Input IN, inout SurfaceOutput o)  
+		{  
+			float4 c;  
+			c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+          
+		inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+		{  
+			float difLight = max(0, dot (s.Normal, lightDir));  
+			float hLambert = difLight * 0.5 + 0.5;  
+			float3 ramp = tex2D(_RampTex, float2(hLambert)).rgb;  
+              
+			float4 col;  
+			col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+			col.a = s.Alpha;  
+			return col;  
+		}  
+          
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+2. 除此之外，我们还需要一张二维渐变图：
+{{~/Desktop/1111/1.png}}
+大小为512*512：首先从左下角开始一个渐变色，直到图片右上角；再开始另一个渐变色，从左上角开始一直到图片中间；最后再开始一个渐变色，从右下角直到中间。
+
+=== 实现 ===
+1. 首先，给我们的光照函数LightingBasicDiffuse添加新的参数viewDir，表示观察方向：
+
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, half3 viewDir, fixed atten)  
+
+这个参数将会由Unity内部提供，来得到当前摄像机的观察位置到观察点的方向向量。
+
+2. 与计算入射光线和平面法向量类似，计算观察方向和平面法向量的夹角余弦值：
+
+float rimLight = max(0, dot (s.Normal, viewDir));
+
+3. 使用Half Lambert方法改善rimLight的值（后面我们会对比一下如果不这么做会有什么区别）：
+
+float rim_hLambert = rimLight * 0.5 + 0.5;  
+
+4. 最后，使用新的计算结果在_RampTex中采样：
+
+float3 ramp = tex2D(_RampTex, float2(dif_hLambert, rim_hLambert)).rgb;
+
+5. 完成的代码如下：
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, half3 viewDir, fixed atten)  
+{  
+	float difLight = max(0, dot (s.Normal, lightDir));  
+	// Add this line  
+	float rimLight = max(0, dot (s.Normal, viewDir));  
+	// Modify this line  
+	float dif_hLambert = difLight * 0.5 + 0.5;  
+	// Add this line  
+	float rim_hLambert = rimLight * 0.5 + 0.5;  
+	// Modify this line  
+	float3 ramp = tex2D(_RampTex, float2(dif_hLambert, rim_hLambert)).rgb;  
+      
+	float4 col;  
+	col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+	col.a = s.Alpha;  
+	return col; 
+}
+
+6. 最后得到的渲染结果如下：
+{{./2.png}}
+
+=== 解释 ===
+当使用了观察方向这个参数后，我们可以创建一个非常简单的衰减渲染结果。下图显示了观察方向和平面法向量进行dot运算后的结果：
+{{./3.png}}
+
+而通过一张二维渐变图，我们可以考虑两个方向对我们观察结果的影响：
+{{./4.png}}
+
+
+=== 思考 ===
+在原书中，实际上在计算两个方向的dot值后，都没有对其和0值取max。而且，在得到rimLight后，也没有采用Half Lambert方法对其优化。实践是检验真理的唯一方法！我们最后就来看一下，究竟有什么区别。这次除了正面，我们还会看一下侧面观察效果有什么不同。
+
+两个方向都不考虑max、不使用Half Lambert
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, half3 viewDir, fixed atten)  
+{  
+	float difLight = dot (s.Normal, lightDir);  
+	float rimLight = dot (s.Normal, viewDir);  
+	float3 ramp = tex2D(_RampTex, float2(difLight, rimLight)).rgb;  
+      
+	float4 col;  
+	col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+	col.a = s.Alpha;  
+	return col;  
+}
+
+渲染结果如下：
+{{./5.png}}
+{{./6.png}}
+
+上面两张图的特点有：两条明显的分割线，分割成了三块，有两块（第一张图中苹果的左边两个区域）的明暗变化是错误的。一条分割线是由入射光线引起的，在计算入射光线方向和法线的点乘时出现了负数，导致由最暗突变到了最亮。一条分割线是由观察角度引起的，道理类似。
+
+=== 分别对两个方向使用max ===
+
+对入射光线方向的计算结果使用max操作：
+float difLight = max (0, dot (s.Normal, lightDir)); 
+
+结果如下：
+{{./7.png}}
+
+结果是分界线仍然存在，但背光面的明暗变化对了。
+
+对观察方向的结果使用max操作：
+float rimLight = max (0, dot (s.Normal, viewDir));  
+
+结果如下：
+{{./8.png}}
+
+通过和上面一种情况观察，可以发现max操作主要改善了正负交界处明暗的不正常变化的情况，防止了一些奇葩情况的出现，例如第一种情况下明暗的不正常变化。因此，如果你确保观察方向和入射方向都非常恰好的话，很有可能发现渲染结果没有变化。
+
+=== 分别使用Half Lambert修正 ===
+首先对入射光线的计算结果进行Half Lambert修正：
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, half3 viewDir, fixed atten)  
+{  
+			float difLight = max (0, dot (s.Normal, lightDir));  
+			float rimLight = max (0, dot (s.Normal, viewDir));  
+			float dif_hLambert = difLight * 0.5 + 0.5;  
+			float3 ramp = tex2D(_RampTex, float2(dif_hLambert, rimLight)).rgb;  
+              
+			float4 col;  
+			col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+			col.a = s.Alpha;  
+			return col;  
+}
+
+结果如下：
+{{./9.png}}
+{{./10.png}}
+
+这也是原书所得到的结果。可以发现，使用了Half Lambert修正后，除了整体变亮以外，由于入射光线产生的分割线也消失了，在背光面（即原来max操作后为0的区域）现在也有了合理而连续的颜色变化。
+而由于观察方向计算结果还未修正，因此上面的侧向观察图中，仍旧没有合理的渐变结果。
+
+在用Half Lambert继续对观察方向计算结果进行修正，即上文中的代码后，结果如下：
+{{./11.png}}
+{{./12.png}}
+
+=== 结束语 ===
+关于漫反射光照模型的学习，基本告一段落。下面一章里，主要会学习如何使用材质贴图来进行渲染！

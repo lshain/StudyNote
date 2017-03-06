@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-16T14:23:46+08:00
+
+====== 1 Using Textures for Effects介绍 ======
+Created 星期四 16 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17679637
+
+如果你看到这里，恭喜你进入了第二章的学习——如何使用Textures创造各种各样的效果。在前面我们可以看到，除了一般意义上使用Textures来给材质贴图，我们还可以将它用于光照变化等其他看似完全不相关的性质上。
+纹理或贴图，textures，可以将我们的shader赋予活力，得到很多特殊的画面效果。但是，你需要非常小心你的Shader中使用的textures的数目，如果数量过多，那么将会非常影响游戏性能。特别是对于移动设备，你需要将textures的数目降到最小，来使你的应用更加流畅。
+Textures本身就是一些图片，一般是在一些图像编辑软件，如Photoshop，里被创建出来的，但是也可以是在Unity内部被创建（见第5小节）。通过使用UV坐标，我们可以将textures匹配到一个对象的表面。如果你想知道它们是怎样被映射到一个3D表面的，可以阅读Cg提供的[[http://http.developer.nvidia.com/CgTutorial/cg_tutorial_chapter03.html|这篇文章]]。
+
+这一章将包含以下几个小节：
+1. 通过修改UV坐标值来滚动你的textures
+2. 让sprite sheets（可以理解为小贴图的集合，像NGUI中的atlas）动起来
+3. 打包（packing）和混合（blending）textures
+4. 法相贴图（normal mapping）
+5. 在Unity编辑器中创建程序贴图纹理（procedural textures）
+6. Photoshop色阶（levels）效果

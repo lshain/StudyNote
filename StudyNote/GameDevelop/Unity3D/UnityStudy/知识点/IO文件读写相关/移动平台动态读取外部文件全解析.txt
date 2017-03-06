@@ -1,0 +1,308 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-03-27T23:06:34+08:00
+
+====== 移动平台动态读取外部文件全解析 ======
+Created 星期日 27 三月 2016
+
+===== 移动平台动态读取外部文件全解析 =====
+
+转自：http://www.cnblogs.com/murongxiaopifu/p/4199541.html?utm_source=tuicool&utm_medium=referral#_label0
+
+=== 前言： ===
+一直有个想法，就是把工作中遇到的坑通过自己的深挖，总结成一套相同问题的解决方案供各位同行拍砖探讨。眼瞅着2015年第一个工作日就要来到了，小匹夫也休息的差不多了，寻思着也该写点东西活动活动大脑和手指了。那么今天开始，小匹夫会记录一些平时工作中遇到的坑，以及小匹夫的应对方法，欢迎各位拍砖讨论。那么今天主要讨论一下Unity3D在移动端如何动态的读取外部文件，比如csv(txt),xml一类的文件。主要涉及的问题，就是PC端上本来测试的好好的东西，到了移动端就不能用了，所以要讨论一下PC端和移动端的区别，那么下一个问题自然而然的就是移动端的资源路径(要讨论一下Resources、StreamingAssets、AssetBundle、PersistentDataPath)，最后一步就是找到了资源如何读取（这里也会具体到对应的几种情况，即Resources、StreamingAssets、AssetBundle），主要的思路就是这样啦。对嘞，前言部分还是要祝各位看官新的一年身体健康，升职加薪。
+
+=== 假如我想在editor里动态读取文件 ===
+实际的游戏开发中，其实有相当一部分静态数据是可以放在客户端的，所以势必会产生要动态读取这些文件的需求，比如csv（其实就是文本文件），xml等等。我相信大家不管是用win还是用mac来做unity3d的开发，都一定要先在editor中去实现基本的功能，在具体到各个移动平台上去调试。所以作为要读取外部文件的第一步，显然我们要先在editor也就是pc上实现这个功能。
+
+下面给各位举一个读取xml的例子，也是我在以前的一篇文章《自己动手之使用反射和泛型，动态读取XML创建类实例并赋值》中使用过的，动态读取一个xml文件并动态生成一个类。
+
+下面是我们用来做例子的xml文件，Test.xml：
+<?xml version="1.0" encoding="UTF-8"?>
+<test>
+	<name>chenjd</name>
+	<blog>http://www.cnblogs.com/murongxiaopifu/</blog>
+	<organization>Fanyoy</organization>
+	<age>25</age>
+</test>
+
+我们就可以很任性的把这个文件随便丢在一个地方，只要你能指定对它的地址。例如我还把它放在那篇文章中的地址Assets/xml-to-egg/xml-to-egg-test/文件夹下（的确很任性）
+{{./1.png}}
+
+下面我们实现在PC上读取这个文件内容的代码：
+//读取xml测试
+using UnityEngine;
+using System.Collections;
+using EggToolkit;
+using System.Xml.Linq;
+public class Test : MonoBehaviour {
+
+	// Use this for initialization
+	void Start () {
+		XElement result = LoadXML("Assets/xml-to-egg/xml-to-egg-test/Test.xml");//任性的地址
+		Debug.Log(result.ToString());
+	}
+    
+	// Update is called once per frame
+	void Update () {
+    
+	}
+
+	private  XElement LoadXML(string path)
+	{
+		XElement xml = XElement.Load(path);
+		return xml;
+	}
+}
+
+结果如下：
+{{./2.png}}
+
+结果是读取成功了。但是你以为到这一步就成功了，那就错了。因为这样的代码到移动端是行不通的，至少2处可以被骂sb：
+
+1. 醉人的地址，地址参数那样写就不用考虑跨平台了。所以这个sb点引出的问题就是在移动端unity3d找不到目标文件。
+2. 使用的还是pc上传统的一套读取资源的做法，没有使用unity3d提供的方法，所以可能导致的问题是找得到文件但是没有正确的读取文件内容。
+
+以上用红色标出的问题，便是小匹夫想到的可能出现的问题，也是下文要讨论的内容。那么我们首先来看看资源路径在各个平台上的不同之处吧。
+
+=== 移动平台的资源路径问题 ===
+
+想要读取一个文件，自然首先要找到这个文件，下面小匹夫首先会总结一下unity3d中存在的各个地址，之后再总结一下各个地址在各个移动平台中的对应位置。
+
+Unity3D中的资源路径
+Application.dataPath				此属性用于返回程序的数据文件所在文件夹的路径。例如在Editor中就是Assets了。
+Application.streamingAssetsPath 	此属性用于返回流数据的缓存目录，返回路径为相对路径，适合设置一些外部数据文件的路径。
+Application.persistentDataPath		此属性用于返回一个持久化数据存储目录的路径，可以在此路径下存储一些持久化的数据文件。
+Application.temporaryCachePath	此属性用于返回一个临时数据的缓存目录。
+
+android平台
+Application.dataPath				/data/app/xxx.xxx.xxx.apk
+Application.streamingAssetsPath		jar:file:///data/app/xxx.xxx.xxx.apk/!/assets
+Application.persistentDataPath		/data/data/xxx.xxx.xxx/files
+Application.temporaryCachePath	/data/data/xxx.xxx.xxx/cache
+
+IOS平台
+Application.dataPath				Application/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/xxx.app/Data
+Application.streamingAssetsPath 	Application/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/xxx.app/Data/Raw
+Application.persistentDataPath		Application/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/Documents
+Application.temporaryCachePath 	Application/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/Library/Caches
+
+从上面的3张表格，我们可以看到 dataPath和streamingAssetsPath的路径位置一般是相对程序的安装目录位置，而persistentDataPath和temporaryCachePath的路径位置一般是相对所在系统的固定位置。那么现在明确了unity3d中各个地址在不同平台上的含义，下一个问题就来了，也就是我打包之后的资源要怎么和这些地址对应上呢？要知道在pc的editor里默认的资源文件存放的路径就是Assets啊，为何又会派生出那么多路径呢？那么就带着这个疑问，和小匹夫一起进行下文的内容吧。
+
+=== 简单介绍一下unity3d中资源的处理种类（欢迎拍砖）： ===
+
+小匹夫遇到过的大体就是如下几种了，Resources、StreamingAssets、AssetBundle、PersistentDataPath，下面简单分析一下。
+
+Resources：
+是作为一个Unity3D的保留文件夹出现的，也就是如果你新建的文件夹的名字叫Resources，那么里面的内容在打包时都会被无条件的打到发布包中。它的特点简单总结一下就是：
+
+1. 只读，即不能动态修改。所以想要动态更新的资源不要放在这里。
+2. 会将文件夹内的资源打包集成到.asset文件里面。因此建议可以放一些Prefab，因为Prefab在打包时会自动过滤掉不需要的资源，有利于减小资源包的大小。
+3. 主线程加载。
+4. 资源读取使用Resources.Load()。
+
+StreamingAssets：
+要说到StreamingAssets，其实和Resources还是蛮像的。同样作为一个只读的Unity3D的保留文件夹出现。不过两者也有很大的区别，那就是Resources文件夹中的内容在打包时会被压缩和加密。而StreamingAsset文件夹中的内容则会原封不动的打入包中，因此StreamingAssets主要用来存放一些二进制文件。下面也同样做一个简单的总结：
+
+1. 同样，只读不可写。
+2. 主要用来存放二进制文件。
+3. 只能用过WWW类来读取。
+
+AssetBundle：
+关于AssetBundle的介绍已经有很多了。简而言之就是把prefab或者二进制文件封装成AssetBundle文件（也是一种二进制）。但是也有硬伤，就是在移动端无法更新脚本。下面简单的总结下：
+
+1. 是Unity3D定义的一种二进制类型。
+2. 最好将prefab封装成AseetBundle，不过上面不是才说了在移动端无法更新脚本吗？那从Assetbundle中拿到的Prefab上挂的脚本是不是就无法运行了？也不一定，只要这个prefab上挂的是本地脚本，就可以。
+3. 使用WWW类来下载。
+
+PersistentDataPath：
+看上去它只是个路径呀，可为什么要把它从路径里面单独拿出来介绍呢？因为它的确蛮特殊的，这个路径下是可读写。而且在IOS上就是应用程序的沙盒，但是在Android可以是程序的沙盒，也可以是sdcard。并且在Android打包的时候，ProjectSetting页面有一个选项Write Access，可以设置它的路径是沙盒还是sdcard。下面同样简单的总结一下：
+
+	内容可读写，不过只能运行时才能写入或者读取。提前将数据存入这个路径是不可行的。
+	无内容限制。你可以从StreamingAsset中读取二进制文件或者从AssetBundle读取文件来写入PersistentDataPath中。
+	写下的文件，可以在电脑上查看。同样也可以清掉。
+
+好啦，小匹夫介绍到这里，各位看官们是不是也都清楚了一些呢？那么下面我们就开始最后一步了，也就是如何在移动平台如何读取外部文件。
+
+=== 移动平台读取外部文件的方法 ===
+
+上文小匹夫之所以要介绍Resources、StreamingAssets、AssetBundle、PersistentDataPath这四个东东，就是因为读取外部资源的操作所涉及到的东西无外乎这几种。既然是用Unity3D来开发游戏，那么自然要使用Unity3D规定的操作方式，而不是我们在PC上很原始的那种操作方式来操作咯。否则就会像本文一开始所演示的那样，写出移动端无法使用的很傻的代码来。
+
+下面小匹夫就分别实现一下利用Resources、StreamingAssets、AssetBundle来读取的过程。
+
+Resources：
+首先我们新建一个Resources目录，并且将上面我们用到的Test.xml复制一份到这个文件夹中。如图：
+{{./3.png}}
+
+然后我们通过Resources的读取方法来读取Test.xml的内容。并且调用GUI将xml的内容绘制出来。
+
+//用Resources读取xml
+using UnityEngine;
+using System.Collections;
+using EggToolkit;
+using System.Xml.Linq;
+using System.Xml;
+
+public class Test : MonoBehaviour {
+	private string _result;
+
+	// Use this for initialization
+	void Start () {
+		LoadXML("Test");
+	}
+    
+	// Update is called once per frame
+	void Update () {
+    
+	}
+
+	private void LoadXML(string path)
+	{
+		_result = Resources.Load(path).ToString();
+		XmlDocument doc = new XmlDocument();
+		doc.LoadXml(_result); 
+	}
+
+	void OnGUI()
+	{
+		GUIStyle titleStyle = new GUIStyle();  
+		titleStyle.fontSize = 20;  
+		titleStyle.normal.textColor = new Color(46f/256f, 163f/256f, 256f/256f, 256f/256f);  
+		GUI.Label(new Rect(400, 10, 500, 200),  _result,titleStyle);
+	}
+
+}
+
+结果如图：
+{{./4.png}}
+OK，Resources读取外部资源目标达成！！
+
+下面我们继续，这次则是使用StreamingAssets来操作。
+
+StreamingAssets：
+同Resources一样，我们要新建一个StreamingAssets的文件夹来存放我们的Test.xml文件。如图：
+{{./5.png}}
+
+不过前文已经说了，StreamingAssets文件夹内的东西并不会被压缩和加密，而是放进去什么就是什么，所以一般是要放二进制文件的，这里小匹夫仅仅做一个演示，各位在实际操作中切记不要直接把数据文件放到这个目录中打包。
+
+using UnityEngine;
+using System.Collections;
+using EggToolkit;
+using System.Xml.Linq;
+using System.Xml;
+using System.IO;
+
+public class Test : MonoBehaviour {
+	private string _result;
+
+	// Use this for initialization
+	void Start () {
+		StartCoroutine(LoadXML());
+	}
+    
+	// Update is called once per frame
+	void Update () {
+    
+	}
+
+	/// <summary>
+	/// 如前文所述，streamingAssets只能使用www来读取，
+	/// 如果不是使用www来读取的同学，就不要问为啥读不到streamingAssets下的内容了。
+	/// 这里还可以使用persistenDataPath来保存从streamingassets那里读到内容。
+	/// </summary>
+	IEnumerator LoadXML()
+	{
+		string sPath= Application.streamingAssetsPath + "/Test.xml";
+		WWW www = new WWW(sPath);
+		yield return www;
+		_result = www.text;
+	}
+    
+	void OnGUI()
+	{
+		GUIStyle titleStyle = new GUIStyle();  
+		titleStyle.fontSize = 20;  
+		titleStyle.normal.textColor = new Color(46f/256f, 163f/256f, 256f/256f, 256f/256f);  
+		GUI.Label(new Rect(400, 10, 500, 200),  _result,titleStyle);
+	}
+
+}
+
+结果如图：
+{{./6.png}}
+
+OK，StreamingAssets读取外部资源目标达成！！
+
+下面我们继续，最后则是使用AssetBundle来操作。
+
+AssetBundle:
+来到AssetBundle，这里就和上面两个不一样了。首先我们要把我们的文件Test.xml打成AssetBundle文件，由于小匹夫使用的是小米3作为测试机，所以AssetBundle的平台选择为Andorid。
+
+如图，我们创建了一个AssetBundle文件，并命名为TextXML。并且按照二进制文件放入StreamingAssets文件夹中的惯例，将这个AssetBundle文件放入StreamingAssets文件夹。
+
+{{./7.png}}
+
+那么下面就是从AssetBudle中读取Test.xml的内容咯。直接上代码：
+
+//从AssetBundle中读取xml
+using EggToolkit;
+using System.Xml.Linq;
+using System.Xml;
+using System.IO;
+
+public class Test : MonoBehaviour {
+	private string _result;
+    
+	// Use this for initialization
+	void Start () {
+		LoadXML();
+	}
+    
+	// Update is called once per frame
+	void Update () {
+        
+	}
+
+	void LoadXML()
+	{
+		AssetBundle AssetBundleCsv = new AssetBundle();
+		//读取放入StreamingAssets文件夹中的bundle文件
+		string str = Application.streamingAssetsPath + "/" + "TestXML.bundle";
+		WWW www = new WWW(str);
+		www = WWW.LoadFromCacheOrDownload(str, 0);    
+		AssetBundleCsv = www.assetBundle;
+
+		string path = "Test";
+    
+		TextAsset test = AssetBundleCsv.Load(path, typeof(TextAsset)) as TextAsset;
+
+		_result = test.ToString();
+	}
+    
+	void OnGUI()
+	{
+		GUIStyle titleStyle = new GUIStyle();  
+		titleStyle.fontSize = 20;  
+		titleStyle.normal.textColor = new Color(46f/256f, 163f/256f, 256f/256f, 256f/256f);  
+		GUI.Label(new Rect(400, 10, 500, 200),  _result,titleStyle);
+	}
+    
+}
+
+结果如图：
+{{./8.png}}
+
+OK，AssetBundle读取外部资源目标也达成了！！
+
+补充：
+在此统一回答一下在评论和qq上有同学提出的一个问题：安卓上Application.persistentDataPath的内容貌似不是匹夫你表里的那个呀？在本文的评论里小匹夫已经回复过了，其实文中也说过
+
+但是在Android可以是程序的沙盒，也可以是sdcard。并且在Android打包的时候，ProjectSetting页面有一个选项Write Access，可以设置它的路径是沙盒还是sdcard。
+
+下面上图好啦：
+{{./9.png}}
+{{./10.jpg}}
+{{./11.png}}
+{{./12.jpg}}
+
+这样，我们就实现了几种动态读取外部文件的操作。各位看官是否看明白了呢？当然文章仓促，还有很多不足，欢迎大家拍砖探讨~

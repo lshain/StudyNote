@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-08T15:29:37+08:00
+
+====== 2 Navigation Options ======
+Created 星期五 08 四月 2016
+
+===== Navigation Options =====
+{{./1.png}}
+
+Property: 				Function:
+Navigation 			The Navigation options refers to how the navigation of UI elements in play mode will be controlled.
+None 				No keyboard navigation. Also ensures that it does not receive focus from clicking/tapping on it.
+Horizontal 			Navigates Horizontally.
+Vertical 				Navigates Vertically.
+Automatic 			Automatic Navigation.
+Explicit 				In this mode you can explicitly specify where the control navigates to for different arrow keys.
+Visualize 				Selecting Visualize gives you a visual representation of the navigation you have set up in the scene window. See below.
+
+{{./2.png}}
+
+{{./3.png}}
+Scene window showing the visualized navigation connections

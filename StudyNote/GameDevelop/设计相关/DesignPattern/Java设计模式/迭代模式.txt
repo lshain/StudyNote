@@ -1,0 +1,109 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:58:05+08:00
+
+====== 迭代模式 ======
+Created 星期一 15 八月 2016
+
+迭代模式：给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子。以下是例子:
+
+public interface Iterator {  
+	Object next();
+
+	void first();
+
+	void last();
+
+	boolean hasNext(); 
+}
+
+public class IteratorImpl implements Iterator{
+	private List list; private int index;
+
+	public IteratorImpl(List list){
+		index = 0;
+
+		this.list = list; 
+	}
+
+	public Object next() {
+		Object obj = list.get(index);
+
+		index++; return obj; 
+	}
+
+	public void first() {
+		index = 0; 
+	}
+
+	public void last() {
+		index = list.getSize(); 
+	}
+
+	public boolean hasNext() {
+		return index < list.getSize(); 
+	} 
+}
+
+public interface List {
+	Iterator iterator();
+	Object get(int index);
+	int getSize();
+	void add(Object obj);
+}
+
+public class ListImpl implements List{
+	private Object[] list;
+
+	private int index;
+
+	private int size;
+
+	public ListImpl(){
+		index = 0;
+		size = 0;
+
+		list = new Object[100]; 
+	} 		
+
+	public Iterator iterator() {
+		return new IteratorImpl(this); 
+	}
+
+	public Object get(int index) {
+		return list[index]; 
+	}
+
+	public int getSize() {
+		return this.size; 
+	}
+
+	public void add(Object obj) {
+		list[index++] = obj;
+		size++; 
+	} 
+}
+
+//测试类
+public class Test {
+	public static void main(String[] args) {
+		List list = new ListImpl();
+		list.add("a");
+		list.add("b");
+		list.add("c");
+
+		//第一种迭代方式
+		Iterator it = list.iterator();
+		while(it.hasNext()){
+			System.out.println(it.next()); 
+		}
+
+		System.out.println("======");
+
+		//第二种迭代方式
+		for(int i = 0;i<list.getSize();i++){
+			System.out.println(list.get(i)); 
+		} 
+	} 
+}
+

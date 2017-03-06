@@ -1,0 +1,57 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:39:30+08:00
+
+====== 中介者模式 ======
+Created 星期一 15 八月 2016
+
+中介者模式：用一个中介对象来封装一系列的对象交互。中介者使各对象不需要显式地相互引用，从而使其耦合松散，而且可以独立地改变它们之间的交互。以下是例子：
+
+public class ColleagueA extends Colleague {
+	public void action() {
+		System.out.println("普通员工努力工作");
+	}
+}
+
+public class ColleagueB extends Colleague {  
+	public void action() {
+		System.out.println("前台注意了"); 
+	} 
+}
+
+//中介者 
+public class ConcreteMediator extends Mediator {  
+	private ColleagueA ca;
+	private ColleagueB cb;
+
+	public ConcreteMediator(){
+		ca = new ColleagueA();
+		cb = new ColleagueB(); 
+	}
+
+	public void notice(String content) {
+		if(content.equals("boss")){
+			//老板来了,通知员工A
+			ca.action(); 
+		}
+
+		if(content.equals("client")){
+			//客户来了,通知前台
+			cb.action(); 
+		} 
+	} 
+}
+
+
+//测试类 
+public class Test {  
+	public static void main(String[] args) {
+
+		Mediator med = new ConcreteMediator();
+
+		med.notice("boss");
+
+		med.notice("client"); 
+	} 
+}
+

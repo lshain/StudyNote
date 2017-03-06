@@ -1,0 +1,9 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-07T17:42:21+08:00
+
+====== Lighting ======
+Created 星期二 07 六月 2016
+
+===== Lighting =====
+This section details the advanced lighting features available in Unity. For an introduction, see the Lights manual page and the Light component reference page.

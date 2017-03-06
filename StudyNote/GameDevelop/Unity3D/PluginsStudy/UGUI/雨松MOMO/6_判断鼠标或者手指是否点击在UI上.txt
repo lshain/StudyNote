@@ -1,0 +1,49 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T22:37:24+08:00
+
+====== 6 判断鼠标或者手指是否点击在UI上 ======
+Created 星期二 05 四月 2016
+
+转自：http://www.xuanyusong.com/archives/3327
+
+比如战斗场景，UI和3D场景同时都需要响应触摸事件，如果同时响应可能就会出现触摸UI的时候影响到了3D部分。为了解决这个问题在判断3D响应之前要先判断手指是否点击在UI上。 以前NGUI的时候都是自己来发送射线判断，现在UGUI好了系统提供了更为简便的方法。
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+#define ANDROID
+#endif
+ 
+#if UNITY_IPHONE && !UNITY_EDITOR
+#define IPHONE
+#endif
+ 
+using UnityEngine;
+using UnityEngine.UI;
+using System.Collections;
+using UnityEngine.EventSystems;
+public class NewBehaviourScript : MonoBehaviour {
+ 
+	// Use this for initialization
+	void Start () {
+	
+	}
+	
+	void Update()
+	{
+		if (Input.GetMouseButtonDown(0)||(Input.touchCount >0 && Input.GetTouch(0).phase == TouchPhase.Began))
+		{
+#if IPHONE || ANDROID
+			if (EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))
+#else
+			if (EventSystem.current.IsPointerOverGameObject())
+#endif
+				Debug.Log("当前触摸在UI上");
+			
+			else 
+				Debug.Log("当前没有触摸在UI上");
+		}
+	}
+}
+
+这段代码我在Android上已经测试通过。 哦 我用的是unity5.1
+

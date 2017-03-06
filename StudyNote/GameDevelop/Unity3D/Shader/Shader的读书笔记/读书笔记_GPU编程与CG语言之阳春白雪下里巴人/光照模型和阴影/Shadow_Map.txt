@@ -1,0 +1,139 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-12T13:57:54+08:00
+
+====== Shadow Map ======
+Created 星期五 12 八月 2016
+
+Shadow Map 是一种基于深度图（depth map）的阴影生成方法，由LanceWilliams 于1978 年在文章“Casting curved shadows on curved surfaces”中首次提出。该方法的主要思想是：在第一遍渲染场景时，将场景的深度信息存放在纹理图片上，这个纹理图片称为深度图；然后在第二次渲染场景时，将深度图中的信息 lenth1 取出，和当前顶点与光源的距离 lenth2 做比较，如果 lenth1 小于 lenth2，则说明当前顶点被遮挡处于阴影区，然后在片段着色程序中，将该顶点设置为阴影颜色。
+
+=== Shadow map 原理与实现流程 ===
+
+使用Shadow Map 技术渲染阴影主要分两个过程：生成depth map(深度图) 和 使用depth map 进行阴影渲染。
+
+**生成depth map 的流程为：**
+1. 以光源所在位置为相机位置，光线发射方向为观察方向进行相机参数设置；
+2. 将世界视点投影矩阵 worldViewProjMatrix 传入顶点着色程序中，并在其中计算每个点的投影坐标，投影坐标的Z 值即为深度值（将Z 值保存为深度值只是很多方法中的一种）。在片段shadow 程序中将深度值进行归一化，即转化到【0，1】区间。然后将深度值赋给颜色值（Cg 最的颜色值范围在0-1 之间）。
+3. 从 frame buffer 中读取颜色值，并渲染到一张纹理上，就得到了depthmap。注意：在实际运用中，如果遇到动态光影，则depth map 通常是实时计算的，这就需要场景渲染两次，第一次渲染出depth map，然后基于depthmap 做阴影渲染。渲染depth map 的顶点着色程序和片段着色程序分别为：
+
+**渲染depth map 的顶点着色程序**
+void main_v(
+	float4 position : POSITION,
+	out float4 oPosition : POSITION,
+	out float2 depth : TEXCOORD0,
+	uniform float4x4 worldViewProj )
+{
+	oPosition = mul(worldViewProj, position);
+	// 存放深度值
+	depth.x = oPosition.z;
+	depth.y = oPosition.w;
+}
+
+**渲染depth map 的片段着色程序**
+void main_f(
+	float2 depth : TEXCOORD0,
+	out float4 result : COLOR,
+	uniform float pNear ,
+	uniform float pFar,
+	uniform float depthOffset )
+{
+	float depthNum = 0.0;
+	//归一化到0-1 空间
+	depthNum = (depth.x - pNear) / (pFar - pNear);
+	depthNum += depthOffset;
+	result.xyz = depthNum.xxx;
+	result.w = 1.0;
+}
+
+片段着色程序中，有一个外部输入变量depthOffset，该变量表示深度值的偏移量，这时因为：将深度值写入纹理颜色，会导致数据精度的损失，所以需要加上一个深度偏移量。这个偏移量自己设定，通常是0.01 之类的微小数据。
+
+**使用depth map 进行阴影渲染的流程为：**
+1. 将纹理投影矩阵传入顶点着色程序中。注意，这个纹理投影矩阵，实际上就是产生深度图时所使用的worldViewProjMatrix 矩阵乘上偏移矩阵，根据纹理投影矩阵，和模型空间的顶点坐标，计算投影纹理坐标和当前顶点距离光源的深度值2 l enth （深度值的计算方法要和渲染深度图时的方法保持一致）。
+2. 将 depth map 传入片段着色程序中，并根据计算好的投影纹理坐标，从中获取颜色信息，该颜色信息就是深度图中保存的深度值 lenth1 。
+3. 比较两个深度值的大小，若 lenth2 大于 lenth1，则当前片断在阴影中；否则当前片断受光照射。
+
+顶点着色程序和片段着色程序如下所示：
+**使用depth map 进行阴影渲染的顶点着色程序**
+void main_v(
+	float4 position : POSITION,
+	float4 normal : NORMAL,
+	float2 tex : TEXCOORD,
+	out float4 outPos : POSITION,
+	out float4 outShadowUV : TEXCOORD0,
+	uniform float4x4 worldMatrix,
+	uniform float4x4 worldViewProj,
+	uniform float4x4 texViewProj)
+{
+	outPos = mul(worldViewProj, position);
+	float4 worldPos = mul(worldMatrix, position);
+	// 计算投影纹理坐标
+	outShadowUV = mul(texViewProj, worldPos);
+}
+
+**使用depth map 进行阴影渲染的片段着色程序**
+void main_f(
+	float4 position : POSITION,
+	float4 shadowUV : TEXCOORD0,
+	out float4 result : COLOR
+	uniform sampler2D shadowMap ,
+	uniform float pNear ,
+	uniform float pFar,
+	uniform float depthOffset,
+	uniform int pixelOffset)
+{
+	//计算当前顶点和光源之间的距离（相对）
+	float lightDistance = (shadowUV.z - pNear) / (pFar - pNear);
+	lightDistance = lightDistance - depthOffset;
+	shadowUV.xy = shadowUV.xy/ shadowUV.w;
+	
+	//进行多重采样，减小误差
+	float4 depths = float4(
+	tex2D(shadowMap, shadowUV.xy + float2(-pixelOffset, 0)).x,
+	tex2D(shadowMap, shadowUV.xy + float2(pixelOffset, 0)).x,
+	tex2D(shadowMap, shadowUV.xy + float2(0, -pixelOffset)).x,
+	tex2D(shadowMap, shadowUV.xy + float2(0, pixelOffset)).x);
+	float centerdepth = tex2D(shadowMap, shadowUV.xy).x;
+	
+	//进行深度比较
+	float l_Lit = (lightDistance >= centerdepth? 0 : 1);
+	l_Lit += (lightDistance >= depths.x? 0 : 1);
+	l_Lit += (lightDistance >= depths.y? 0 : 1);
+	l_Lit += (lightDistance >= depths.z? 0 : 1);
+	l_Lit += (lightDistance >= depths.w? 0 : 1);
+	l_Lit *= 0.2f;
+	result = float4(l_Lit, l_Lit, l_Lit, 1.0);
+}
+
+{{~/Desktop/1111/1.png}}
+								shadow map 渲染效果图
+
+Shadow map 方法的优点是可以使用一般用途的图形硬件对任意的阴影进行绘制，而且创建阴影图的代价与需要绘制的图元数量成线性关系，访问阴影图的时间也固定不变。此外，可以在基于该方法进行改进，创建软阴影效果。所谓软阴影就是光学中的半影区域。如果实时渲染软阴影，并运用到游戏中，是目前光照渲染领域的一个热门研究方向。
+
+但Shadow map 方法同样存在许多不足之处：
+其一：阴影质量与阴影图的分辨率有关，所以很容易出现阴影边缘锯齿现象；
+
+其二：深度值比较的精确度和正确性，有赖于depth map 中像素点的数据精度，当生成深度图时肯定会造成数据精度的损失。要知道，深度值最后都被归一化到0，1 空间中，所以看起来很小的精度损失也会影响数据比较的正确性，尤其是当两个点相聚非常近时，会出现z-fighting 现象。所以往往在深度值上加上一个偏移量，人为的弥补这个误差；
+
+其三：自阴影走样（Self-shadow Aliasing）,光源采样和屏幕采样通常并不一定在完全相同的位置，当深度图保存的深度值与观察表面的深度做比较时，其数值可能会出现误差，而导致错误的效果，通常引入偏移因子来避免这种情况；
+
+其四：这种方法只适合于灯类型是聚光灯（Spot light ）的场合。如果灯类型是点光源（Point light）的话，则在第一步中需要生成的不是一张深度纹理，是一个立方深度纹理（cube texture）。如果灯类型是方向光（Directional light）的话,，则产生深度图时需要使用平行投影坐标系下的worldViewProjMatrix 矩阵；
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

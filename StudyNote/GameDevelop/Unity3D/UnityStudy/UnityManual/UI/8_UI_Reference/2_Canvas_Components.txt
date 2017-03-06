@@ -1,0 +1,9 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-07T12:54:55+08:00
+
+====== 2 Canvas Components ======
+Created 星期四 07 四月 2016
+
+All UI Components are placed within a Canvas.
+

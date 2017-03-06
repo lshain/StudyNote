@@ -1,0 +1,110 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T16:37:21+08:00
+
+====== 4 Diffuse Shading-在Surface Shader中使用properties ======
+Created 星期日 12 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17355629
+
+在上一篇中，我们已经向Surface Shader中添加了一些properties。在这篇教程里，我们将学习如何在Shader中访问和使用它们，以便通过调整Inspector中的变量来改变渲染效果。
+
+=== 准备工作 ===
+在上一篇结束后，我们的shader代码如下：
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			half4 c = tex2D (_MainTex, IN.uv_MainTex);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+因为之前我们移除了_MainTex属性，所以首先移除和它相关的代码。即上面代码的sampler2D _MainTex一行以及void surf函数中的half4 c这一行。
+
+=== 实现 ===
+在原来sampler2D _MainTex的地方，添加如下代码：
+float4 _EmissiveColor;  
+float4 _AmbientColor;  
+float _MySliderValue  
+
+下面，我们使用_EmissiveColor和_AmbientColor来计算surf函数中新的c的值：
+void surf (Input IN, inout SurfaceOutput o)  
+{  
+  float4 c;  
+  c =  pow((_EmissiveColor + _AmbientColor),  _MySliderValue);  
+  o.Albedo = c.rgb;  
+  o.Alpha = c.a;  
+}
+
+最后，我们的代码应该是这样的：
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+          
+		//We need to declare the properties variable type inside of the  
+		//CGPROGRAM so we can access its value from the properties block.  
+		float4 _EmissiveColor;  
+		float4 _AmbientColor;  
+		float _MySliderValue;  
+          
+		struct Input  
+		{  
+			float2 uv_MainTex;  
+		};  
+          
+		void surf (Input IN, inout SurfaceOutput o)  
+		{  
+			//We can then use the properties values in our shader  
+			float4 c;  
+			c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+          
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+下图显示了使用本文中的shader，并适当调整参数后的结果：
+{{./1.png}}
+其参数如下：
+{{./2.png}}
+画面左边是我们自定义的shader，右边则是使用Unity默认的Diffuse Shader。
+
+=== 解释 ===
+1. 当我们在Properties块中声明一个新的变量时，就提供了在Inspector界面中改变它的值的方式。
+2. 如果我们想要在SubShader中访问它，还需要在CGPROGRAM内部声明一个和Properties中名字相同的变量，这将自动建立一个连接，两者将操作同一个数据。
+3. 除了声明一个相同名字的变量，你还需要声明它的类型，如上面的float4、float等，这和Properties中的属性是不同的。在后面我们将看到如何使用这些属性来优化代码。
+4. pow()函数是一个内置函数。你可以访问[[http://http.developer.nvidia.com/CgTutorial/cg_tutorial_appendix_e.html|Cg的网站]]，来查看更详细的信息，同时也可以学到更多关于Cg Shading Language的内容。
+
+基础知识的学习已经告一阶段！下面将学习更多较为完整的Shader哦！

@@ -1,0 +1,76 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T16:21:56+08:00
+
+====== 3 Diffuse Shading-向Surface Shader添加properties ======
+Created 星期日 12 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17152641
+
+这次是在上一篇的基础上，进一步学习Unity Shaders的Properties。
+
+=== 准备工作 ===
+
+我们假设你已经进行了上一篇里的工作：创建了一个BasicDiffuse.shader，并且看到了Unity自动为你创建的代码：
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			half4 c = tex2D (_MainTex, IN.uv_MainTex);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+=== 实现 ===
+Unity Shaders的Properties指的是上述代码中第2至4行的内容。你可以看到它们被一个被标有Properties大括号所包含。这里面的每一项代表了将会出现在Unity Inspector中的GUI，例如一张可供拖放的2D Texture、一个Color等等。这些值将可以使用户可以方便地调整参数来实现不同的渲染效果。又一次，Unity帮我们做好了GUI的创建工作，我们只需要在这里添加相应的一行，就可以在Inspector界面里快速创建一个可供调整的GUI。
+现在，Properties只包含了一项内容，即_MainTex。下面我们进行一些更改：
+
+1. 将_MainTex这一行删除，在其位置添加新的代码：_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)
+2. 保存后，进入Unity查看效果。Unity将自动编译该shader，随后就可以在Material的Inspector页面上看到新的GUI。
+3. 继续添加两行代码，完整代码如下所示：
+
+Properties {  
+	_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+	_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+	_MySliderValue ("This is a Slider", Range(0, 10)) = 2.5  
+}
+
+保存后，进入Unity查看编译结果。
+
+4. 不出意外的话，你应该会看到下面的画面：{{./1.png}}
+5. 现在，你可以尝试在Unity的Inspector里面调整你刚才添加的这些Properties了！
+
+=== 解释 ===
+通过上面的尝试，如果你仔细观察过上述代码的特征，应该可以自己总结出来这是怎么工作的。
+{{./2.png}}
+如上图所示，Properties中的每一项共包含四个部分（缺一不可）：
+
+1. 首先，你需要定义变量名称，这些名称将会在shader后面的编写中方便你引用它们，这很像我们编写C#、C++等代码时定义的变量名；
+2. 接下来，是GUI名称，这些将会出现在Unity的Inspector界面里，也就是用户会看到的名字，正如上一部分图中所示那样。这些名字和编写shader没有直接关系，只是为了方便用户理解；
+3. 再下面是类型。例如，Unity自动生成的代码中的_MainTex类型为2D，表明这是一个2D贴图，我们之前定义的_EmissiveColor类型为Color。Unity支持的类型可见下表：
+{{./3.png}}
+4. 最后，是默认值。这是不可省略的。
+
+细心的你可能发现，在Unity自动创建的代码中，_MainTex还包含了一个花括号：
+_MainTex ("Base (RGB)", 2D) = "white" {}
+从Unity的官方文档里（见下），你可以了解到它的作用，在后面的章节中当然也会讲到。简单来讲，这些花括号仅针对类型为2D、Rect和Cube的变量，如果你在其他类型变量后面添加了这些括号会出现编译错误。
+
+这部分的官方文档，请见[[http://docs.unity3d.com/Manual/SL-Properties.html|这里]]。

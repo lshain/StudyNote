@@ -1,0 +1,21 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T16:52:09+08:00
+
+====== meta文件里timeCreated变化导致SVN改变 ======
+Created 星期一 09 一月 2017
+
+Unity5的meta文件格式中增加了一项timeCreated 一般也没啥问题。但是如果我想用代码去生成一些文件，为了避免删除的情况，肯定是先清空文件夹下的所有文件然后在生成。
+
+这样就出现个问题。因为把文件夹清空了。所以重新生成文件以后meta里的timeCreated就变化了。。
+
+{{./1.png}}
+
+UnityEditor.FileUtil.DeleteFileOrDirectory(path);
+所以需要删除的时候，过滤掉所有的.meta文件
+
+另外，删除下面就是要生成文件了。  删除完千万不要调用Refresh方法。
+
+AssetDatabase.Refresh();
+
+删除完直接跟着生成。最后在一起Refresh即可。最后接上你的生成代码这样就完美解决了

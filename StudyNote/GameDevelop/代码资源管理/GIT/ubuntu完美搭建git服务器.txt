@@ -1,0 +1,11 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-02-06T19:07:14+08:00
+
+====== ubuntu完美搭建git服务器 ======
+Created 星期一 06 二月 2017
+
+转自：http://blog.csdn.net/dddxxxx/article/details/49050145
+
+最近公司项目需要用到Git来管理项目，正好逢周末花了点时间在虚拟机的unbuntu系统中搭建了下git的服务器，由于搭建过程中多多少少遇到了一些小问题，再因为个人记性不太好，所以在这里记录下来，以备不时之需。开始我已经在虚拟机的ubuntu12.04系统下已经装过一次，忘了记录，这次重新再在虚拟机的ubuntu13.10系统下一步一步的来搭建，后面介绍包括了在客户端机器（宿主机器win7）安装git客户端，及客户端git bash的简单使用。
+

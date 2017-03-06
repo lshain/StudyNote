@@ -1,0 +1,32 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-04T13:37:25+08:00
+
+====== InitializeOnLoad ======
+Created 星期一 04 一月 2016
+
+===== 监听Unity3d启动事件InitializeOnLoad =====
+
+Running Editor Script Code on Launch
+
+Sometimes, it is useful to be able to run some editor script code in a project as soon as Unity launches without requiring action from the user.
+
+You can do this by applying the InitializeOnLoad attribute to a class which has a static constructor.
+
+A static constructor is a function with the same name as the class,
+
+declared static and without a return type or parameters
+
+Example Code:
+
+using UnityEngine;
+using UnityEditor;
+ 
+[InitializeOnLoad]
+public class Startup 
+{
+	static Startup()
+	{
+		Debug.Log("Up and running");
+	}
+}

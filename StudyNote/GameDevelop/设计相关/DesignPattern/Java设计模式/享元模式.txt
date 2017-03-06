@@ -1,0 +1,50 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:06:35+08:00
+
+====== 享元模式 ======
+Created 星期一 15 八月 2016
+
+享元模式：运用共享技术有效地支持大量细粒度的对象，主要是通过HashMap对键是否存在的判断。以下是例子：
+public class FlyweightImpl implements Flyweight{  
+	public void action(int arg) {
+		System.out.println("参数值"+arg); 
+	} 
+}
+
+public class FlyweightFactory {  
+	private static Map flyweights = new HashMap();
+	public static Flyweight getFlyweight(String key){
+		if(flyweights.get(key)==null){
+			flyweights.put(key, new FlyweightImpl()); 
+		}
+			
+		return (Flyweight) flyweights.get(key); 
+	}
+
+	public static int getSize(){ 
+		return flyweights.size(); 
+	} 
+}
+
+//测试类
+public class Test {
+	public static void main(String[] args) {
+		Flyweight fly1 = FlyweightFactory.getFlyweight("a");
+		fly1.action(1);
+
+		Flyweight fly2 = FlyweightFactory.getFlyweight("a");
+		fly1.action(2);
+
+		System.out.println(fly1==fly2);
+
+		Flyweight fly3 = FlyweightFactory.getFlyweight("c");
+		fly1.action(3);
+
+		Flyweight fly4 = FlyweightFactory.getFlyweight("d");
+		fly1.action(4);
+
+		System.out.println(FlyweightFactory.getSize()); 
+	} 
+}
+

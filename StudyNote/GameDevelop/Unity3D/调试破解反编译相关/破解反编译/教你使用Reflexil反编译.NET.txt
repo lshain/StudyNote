@@ -1,0 +1,101 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-12T16:41:27+08:00
+
+====== 教你使用Reflexil反编译.NET ======
+Created 星期四 12 一月 2017
+
+转自：http://www.wxzzz.com/711.html
+
+=== 简介 ===
+反编译的方式有很多种，其实最靠谱的还是IL反编译。
+
+如果不懂IL可以尝试我这边文章入门：http://www.wxzzz.com/278.html
+
+不过我下面要说的不是IL这种底层的代码反编译，而是Reflector中的Reflexil插件进行反编
+
+也许有人会说Reflector不就是反编译了么，为什么还要用Reflexil这个插件？ Reflector 仅仅是反编译出源码给你看，并不能在修改后编译回去。所以我们需要使用Reflexil这个插件进行反编译回去。
+
+=== .NET 三种反编译方式 ===
+这里顺便介绍下我所知道的三种反编译回去的方式：
+
+	直接修改IL代码（当然，这比较难，需要熟悉IL汇编，但是也是最实用的。也许我会在以后的文章详细阐述）
+	使用Reflector进行整个代码项目的导出，然后用VS进行修改后编译（在大型项目中，如果有很多其他的dll引用，也许会让你寸步难行，无法使用VS编译通过，所以大型项目直接用IL汇编反编译关键代码即可）
+	使用Reflexil插件进行直接反编译（似乎这种要比第二种方法要好的多，至少很省事。其实实际使用起来也不是特别的方便，本文会进行一个稍微详细的使用介绍）
+
+
+=== Reflexil 安装 ===
+在此之前你需要先去下载Reflector和Reflexil插件，这些你可以去百度或谷歌上面下载到。
+
+下载好之后首先安装Reflector程序，安装完毕后在把Reflexil插件放到Reflector程序目录下面
+{{./1.jpg}}
+
+然后打开Reflector，在工具栏依次点击 Tools -> Add-Ins... ，如下图所示
+{{./2.jpg}}
+
+然后在弹出的界面中点击+号选择刚刚拷贝到Reflector中的Reflexil插件的dll文件，如下图所示
+{{./3.jpg}}
+
+然后点击Close ，此时程序的 Tools 栏目下已经有了 Reflexil 插件选项。
+
+要反编译的示例项目
+
+本文反编译一个Winform程序（当然，你也可以反编译.NET 的其他 dll 文件），程序如下所示：
+
+图
+{{./4.jpg}}
+
+代码
+ public partial class Form1 : Form
+	{
+		public Form1()
+		{
+			InitializeComponent();
+		}
+ 
+		private void btnTest_Click(object sender, EventArgs e)
+		{
+			MessageBox.Show("你好");
+		}
+	}
+
+我们把这个exe程序进行反编译吧
+
+=== 开始反编译工作 ===
+
+首先在Reflector工具栏中依次点击 Tools -> Reflexil 打开 Reflexil 的窗口，如下图所示
+{{./5.jpg}}
+
+然后打开你要反编译的程序集，我们编译自己写的Winform的exe程序作为测试吧，如下图所示。
+{{./6.jpg}}
+
+然后我们选中我们要反编译的方法，在Reflexil插件中进行反编译，如下图所示。
+{{./7.jpg}}
+
+可以直接在“你好”的那一栏进行点击右键选择 “Edit” 进行直接的编辑
+
+也可以在图中的这个选项卡( Instructions ） 中的表的任意一栏点击右键选择，如下图所示
+{{./8.jpg}}
+
+你可以直接Edit编辑单个文本，也可以Replace all with code... 编辑整个class的内容。
+
+如果你选择的是Replace all with code... 来编辑整个内容的话，你需要在编辑完成后，在界面的左下角点击Complile 做编译操作。
+
+但是似乎这个插件的编辑整个class的功能有缺陷，有些代码识别不出来。所以还是看情况使用吧，如果Replace all with code..不行，就直接选 Edit 编辑我们所选的内容即可。  我这里将“你好” 修改为 “你好，欢迎访问我的博客，www.wxzzz.com”。如下所示
+{{./9.jpg}}
+
+修改完成后，就万事俱备 只欠东风了。
+
+最后一步操作，依次在Reflector项目中点击右键 -> 选择 Reflexil -> 选择 Save as..
+
+保存即可，这样就完成了修改代码，编译成功。如图
+{{./10.jpg}}
+
+然后就ok了，运行看看：
+{{./11.jpg}}
+
+其实很简单，只是我写的可能稍微太细了点儿。
+
+哈哈，反正看图不看文字应该也可以直接结束这篇文章。
+
+以下是我反编译之后的程序下载地址，你可以作为练习再次反编译：[[../../../../3rd_file/TestWinform.Patched.rar|TestWinform.Patched]]

@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-02-24T11:07:32+08:00
+
+====== Unity内置函数 变量 ======
+Created 星期五 24 二月 2017
+
+===== 函数: =====
+1. saturate(x)
+参数:
+	x 用于操作的标量或者矢量，可以是float,float2,float3类型
+作用: 
+	把x截取在[0,1]范围内，如果x是一个矢量，那么会对它的每一个分量执行这样的操作。
+	
+
+
+2. dot(x, y)
+作用:  
+	计算x,y向量的点积。
+

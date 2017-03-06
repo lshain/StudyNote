@@ -1,0 +1,258 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T22:17:18+08:00
+
+====== 二 Canvas Scaler 縮放核心 ======
+Created 星期二 10 一月 2017
+
+=== Canvas Scaler ===
+Canvas Scaler是Unity UI系統中，控制UI元素的總體大小和像素密度的Compoent，Canvas Scaler的縮放比例影響著Canvas下的元素，包含字體大小和圖像邊界。
+
+=== Size ===
+Reference Resolution：預設螢幕大小
+Screen Size：目前螢幕大小
+{{./1.png}}
+
+=== Canvas Size：Canvas Rect Transform 寬高 ===
+{{./2.png}}
+
+Scale Factor
+http://docs.unity3d.com/ScriptReference/Canvas-scaleFactor.html
+ 用於縮放整個Canvas，而且調整Canvas Size與Screen Size一樣
+
+先來看一段官方程式碼
+protected void SetScaleFactor(float scaleFactor)
+{
+	if (scaleFactor == m_PrevScaleFactor)
+		return;
+ 
+	m_Canvas.scaleFactor = scaleFactor;
+	m_PrevScaleFactor = scaleFactor;
+}
+
+程式碼可以看出，Canvas Scaler 透過設定Canvas下的Scale Factor，縮放所有在此Canvas下的元素
+ 
+當Scale Factor為1時，Screen Size (800*600)、Canvas Size(800*600)，圖片大小1倍
+{{./3.png}}
+{{./4.png}}
+
+當Scale Factor為2時，Screen Size (800*600)、Canvas Size(400*300)，圖片大小2倍
+{{./5.png}}
+{{./6.png}}
+
+在當Scale Factor為2時，Scale Factor 會調整整個Canvas 的大小，並讓他的大小跟Screen Size一樣，運算後Canvas Size放大2倍，剛好等於Screen Size，而底下的圖片會放大2倍
+
+=== UI Scale Mode ===
+Constant Pixel Size
+Canvas Size 始終等於 Screen Size，透過Scale Factor直接縮放所有UI元素
+{{./7.png}}
+
+1. Scale Factor：透過此Factor縮放所有在此Canvas下的元素
+2. Reference Pixels Per Unit：
+先介紹圖片檔設定中的Pixels Per Unit，意思是在這張Sprite中，世界座標中的一單位由幾個Pixel組成
+{{./8.png}}
+
+這邊使用的測試圖片為原始大小100*100 的圖檔，這邊統稱測試圖
+{{./9.png}}
+
+舉例來說，場景中有一個1*1 Cube ，與一個Sprite圖片指定為測試圖，兩者的Transform Scale 都為 1
+當 Pixels Per Unit=100，每單位由 100 Pixel組成，Sprite 是100*100 Pixels，那 Sprite 在世界座標中大小就會變成 100/100 * 100/100 = 1*1 Unit
+{{./10.png}}
+
+當 Pixels Per Unit=10，每單位由 10 Pixel組成，Sprite 是100*100 Pixels，那 Sprite 在世界座標中大小就會變成 100/10 * 100/10 = 10*10 Unit
+
+{{./11.png}}
+
+結論：
+■ Unity中一單位等於 100 Pixels
+■ 由此可以推導出公式：
+Sprite 在世界座標中大小 = 原圖大小(Pixels) / Pixels Per Unit
+
+讓我們回到 Reference Pixels Per Unit，官方解釋是，如果圖片檔有設定Pixels Per Unit，則會將Sprite 的 1 pixel 轉換成 UI 中的 1 pixel
+public float pixelsPerUnit
+{
+	get
+	{
+		float spritePixelsPerUnit = 100;
+		if (sprite)
+			spritePixelsPerUnit = sprite.pixelsPerUnit;
+ 
+		float referencePixelsPerUnit = 100;
+		if (canvas)
+			referencePixelsPerUnit = canvas.referencePixelsPerUnit;
+ 
+		return spritePixelsPerUnit / referencePixelsPerUnit;
+	}
+}
+
+上面官方程式碼，可以看出 Image 透過 spritePixelsPerUnit / referencePixelsPerUnit 方式算出新的 pixelsPerUnit
+public override void SetNativeSize()
+{
+	if (overrideSprite != null)
+	{
+		float w = overrideSprite.rect.width / pixelsPerUnit;
+		float h = overrideSprite.rect.height / pixelsPerUnit;
+		rectTransform.anchorMax = rectTransform.anchorMin;
+		rectTransform.sizeDelta = new Vector2(w, h);
+		SetAllDirty();
+	}
+}
+
+在設定 Image 圖片大小時，是把 寬高 / pixelsPerUnit
+
+實作一下，建立一個Canvas參數如下
+{{./12.png}}
+
+Canvas底下建立一個Image，Sprite設定為測試圖，參數如下
+{{./13.png}}
+
+這邊做4種不同的測試：測試方式是修改 Reference Pixels Per Unit 與 Pixels Per Unit 後，點下 Image Compoent 的 Set Native Size來設定圖片原始大小，藉此看到圖片變化
+Reference Pixels Per Unit 		Pixels Per Unit 		Image  Rect Transform(w*h)
+100 						100 				100*100
+200 						100 				200*200
+100 						10 				1000*1000
+200 						10 				2000*2000
+
+■ 上表可以看出當數值改變時，圖片預設大小也會改變
+■ 由此可以推導出公式
+
+	UI大小 = 原圖大小(Pixels)  /  (Pixels Per Unit / Reference Pixels Per Unit) 
+
+=== Scale With Screen Size： ===
+透過設定的Reference Resolution(預設螢幕大小)來縮放
+{{./14.png}}
+
+1. Reference Resolution：預設螢幕大小
+2. Screen Match Mode：縮放模式
+
+先來看官方的算法
+Vector2 screenSize = new Vector2(Screen.width, Screen.height);
+ 
+float scaleFactor = 0;
+switch (m_ScreenMatchMode)
+{
+	case ScreenMatchMode.MatchWidthOrHeight:
+	{
+		// We take the log of the relative width and height before taking the average.
+		// Then we transform it back in the original space.
+		// the reason to transform in and out of logarithmic space is to have better behavior.
+		// If one axis has twice resolution and the other has half, it should even out if widthOrHeight value is at 0.5.
+		// In normal space the average would be (0.5 + 2) / 2 = 1.25
+		// In logarithmic space the average is (-1 + 1) / 2 = 0
+		float logWidth = Mathf.Log(screenSize.x / m_ReferenceResolution.x, kLogBase);
+		float logHeight = Mathf.Log(screenSize.y / m_ReferenceResolution.y, kLogBase);
+		float logWeightedAverage = Mathf.Lerp(logWidth, logHeight, m_MatchWidthOrHeight);
+		scaleFactor = Mathf.Pow(kLogBase, logWeightedAverage);
+		break;
+	}
+	case ScreenMatchMode.Expand:
+	{
+		scaleFactor = Mathf.Min(screenSize.x / m_ReferenceResolution.x, screenSize.y / m_ReferenceResolution.y);
+		break;
+	}
+	case ScreenMatchMode.Shrink:
+	{
+		scaleFactor = Mathf.Max(screenSize.x / m_ReferenceResolution.x, screenSize.y / m_ReferenceResolution.y);
+		break;
+	}
+}
+
+a. Expand(擴大)：將Canvas Size進行寬或高擴大，讓他高於Reference Resolution，計算如下
+scaleFactor = Mathf.Min(screenSize.x / m_ReferenceResolution.x, screenSize.y / m_ReferenceResolution.y);
+
+意思是分別算出長寬 ，”Screen Size” 佔了 “Reference Resolution” 的比例，在求小的
+舉例來說，Reference Resolution為1280*720，Screen Size為800*600
+ScaleFactor Width： 800/1280=0.625
+ScaleFactor Height：600/720=0.83333
+
+ 
+套用ScaleFactor公式：Canvas Size = Screen Size / Scale Factor
+Canvas Width：800 / 0.625 = 1280
+Canvas Height：600 / 0.625 = 960
+Canvas Size 為 1280*960，高度從720變成了960，最大程度的放大(顯示所有元素)
+
+{{./15.png}}
+
+b. Shrink(收縮)：將Canvas Size進行寬或高收縮，讓他低於Reference Resolution，計算如下
+scaleFactor = Mathf.Max(screenSize.x / m_ReferenceResolution.x, screenSize.y / m_ReferenceResolution.y);
+
+意思是分別算出長寬 ，”Screen Size” 佔了 “Reference Resolution” 的比例，在求大的
+舉例來說，Reference Resolution為1280*720，Screen Size為800*600
+ScaleFactor Width： 800/1280=0.625
+ScaleFactor Height：600/720=0.83333
+
+ 
+套用ScaleFactor公式：Canvas Size = Screen Size / Scale Factor
+Canvas Width：800 / 0.83333 = 960
+Canvas Height：600 / 0.83333 = 720
+Canvas Size 為 960*720，寬度從1280變成了960，最大程度的縮小
+
+{{./16.png}}
+
+c. Match Width or Height：根據Width或Height進行混合縮放，計算如下
+float logWidth = Mathf.Log(screenSize.x / m_ReferenceResolution.x, kLogBase);
+float logHeight = Mathf.Log(screenSize.y / m_ReferenceResolution.y, kLogBase);
+float logWeightedAverage = Mathf.Lerp(logWidth, logHeight, m_MatchWidthOrHeight);
+scaleFactor = Mathf.Pow(kLogBase, logWeightedAverage);
+
+分別對ScaleFactor Width、Height取對數後，再進行平均混合，那為什麼不直接使用March對Width、Height進行混合呢??，讓我們來比較一下
+假設Reference Resolution為400*300，Screen Size為200*600 大小關係是
+Reference Resolution Width 是 Screen Size Width的2倍
+Reference Resolution Height 是 Screen Size 的0.5倍
+看起來會像下圖
+{{./17.png}}
+
+當March為0.5時，ScaleFactor應該要是 1 (拉平)
+ScaleFactor Width： 200/400=0.5
+ScaleFactor Height：600/300=2
+一般混合：
+ScaleFactor = March * ScaleFactor Width + March * ScaleFactorHeight
+ScaleFactor = 0.5 * 0.5 + 0.5 * 2 = 1.25
+對數混合：
+logWidth：log2(0.5) = -1
+logHeight：log2(2) = 1
+logWeightedAverage：0
+ScaleFactor：20 = 1
+scaleFactor一般混合為1.25，對數混合為1，結果很明顯，使用對數混合能更完美的修正大小
+
+=== Constant Physical Size ===
+透過硬體設備的Dpi(Dots Per Inch 每英吋點數)，進行縮放
+{{./18.png}}
+
+1. Physical Unit：使用的單位種類
+單位種類 			中文 				與1英吋關係
+Centimeters 		公分(cm，厘米) 		2.54
+Millimeters 		公釐(mm，毫米) 	25.4
+Inches 			英吋 				1
+Points 			點 				72
+Picas 			皮卡(十二點活字) 	6
+
+2. Fallback Screen DPI：備用Dpi，當找不到設備Dpi時，使用此值
+3. Default Sprite DPI：預設的圖片Dpi
+
+float currentDpi = Screen.dpi;
+float dpi = (currentDpi == 0 ? m_FallbackScreenDPI : currentDpi);
+float targetDPI = 1;
+switch (m_PhysicalUnit)
+{
+	case Unit.Centimeters: targetDPI = 2.54f; break;
+	case Unit.Millimeters: targetDPI = 25.4f; break;
+	case Unit.Inches:      targetDPI =     1; break;
+	case Unit.Points:      targetDPI =    72; break;
+	case Unit.Picas:       targetDPI =     6; break;
+}
+ 
+SetScaleFactor(dpi / targetDPI);
+SetReferencePixelsPerUnit(m_ReferencePixelsPerUnit * targetDPI / m_DefaultSpriteDPI);
+
+結論：
+■ ScaleFactor 為 “目前硬體dpi” 佔了 “目標單位” 的比例
+■ ReferencePixelsPerUnit 要與目前的Dpi在運算求出新的值，再傳入Canvas中求出大小，公式如下：
+
+	新的 Reference Pixels Per Unit = Reference Pixels Per Unit * Physical Unit / Default Sprite DPI
+	UI大小 = 原圖大小(Pixels)  /  (Pixels Per Unit / 新的 Reference Pixels Per Unit)
+
+參考資料
+■ Unity – Manual: Canvas
+http://docs.unity3d.com/Manual/class-Canvas.html
+

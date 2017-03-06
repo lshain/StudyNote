@@ -1,0 +1,108 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T17:50:49+08:00
+
+====== 脚本自动添加tag和Layer ======
+Created 星期三 11 一月 2017
+
+有朋友问我他做了一个unity游戏插件，但是它的插件里面自定义了自己的tag和layer。这样用户在导入他的unitypackage的时候如果项目里没有写入它的tag或者layer那么就会有错误，所以他希望在导入unitypackage的时候自定把它的tag或者layer写进用户的项目里。
+
+把下面这条脚本，随着你的资源一起打包，这样当你的unitypackage被别人导入的时候，程序就会调用AddTag和AddLayer来添加。因为有可能你的项目里已经添加了这个tag或者layer所以在添加之前我做了一个判断，判断项目是否已经存在了这个tag。
+
+using System;
+using System.Collections;
+using System.Reflection;
+using UnityEditor;
+using UnityEngine;
+ 
+public class NewBehaviourScript :AssetPostprocessor
+{
+ 
+	static void OnPostprocessAllAssets (string[] importedAssets, string[] deletedAssets,string[] movedAssets, string[] movedFromAssetPaths) 
+	{
+		foreach(string s in importedAssets)
+		{
+			if (s.Equals("Assets/NewBehaviourScript.cs"))
+			{
+				//增加一个叫momo的tag
+				AddTag("momo");
+				//增加一个叫ruoruo的layer
+				AddLayer("ruoruo");
+				return ;
+			}
+		}   
+	}
+ 
+	static void AddTag(string tag)
+	{
+		if(!isHasTag(tag))
+		{
+			SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+			SerializedProperty it = tagManager.GetIterator();
+			while (it.NextVisible(true))
+			{
+				if(it.name == "tags")
+				{
+					for (int i = 0; i < it.arraySize; i++) 
+					{ 
+						SerializedProperty dataPoint = it.GetArrayElementAtIndex(i);
+						if(string.IsNullOrEmpty(dataPoint.stringValue)){
+							dataPoint.stringValue = tag;
+							tagManager.ApplyModifiedProperties();
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+ 
+	static void AddLayer(string layer)
+	{
+		if(!isHasLayer(layer))
+		{
+			SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+			SerializedProperty it = tagManager.GetIterator();
+			while (it.NextVisible(true))
+			{
+				if(it.name.StartsWith("User Layer"))
+				{
+					if(it.type == "string" )
+					{
+						if(string.IsNullOrEmpty(it.stringValue)){
+							it.stringValue  = layer;
+							tagManager.ApplyModifiedProperties();
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+ 
+	static bool isHasTag(string tag)
+	{
+		for (int i = 0; i < UnityEditorInternal.InternalEditorUtility.tags.Length; i++) {
+			if (UnityEditorInternal.InternalEditorUtility.tags[i].Contains(tag))
+				return true;
+		}
+		return false;
+	}
+ 
+	static bool isHasLayer(string layer)
+	{
+		for (int i = 0; i < UnityEditorInternal.InternalEditorUtility.layers.Length; i++) {
+			if (UnityEditorInternal.InternalEditorUtility.layers[i].Contains(layer))
+				return true;
+		}
+		return false;
+	}
+}
+
+OK然后就是导入你的unitypackage
+{{./1.png}}
+
+倒入完毕后，新增加的tag和layer就都保存进去了。
+{{./2.png}}
+
+代码其实不难，如果你想同时导入多个tag或者layer，简单的拓展一下方法传入不固定参数即可。

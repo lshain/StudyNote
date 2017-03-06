@@ -1,0 +1,151 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T17:41:32+08:00
+
+====== 使用Android的硬件缩放技术优化执行效率 ======
+Created 星期三 11 一月 2017
+
+转自：http://www.xuanyusong.com/archives/3205
+
+Andoird太头疼了，尤其有些机器就是屏幕大别的硬件条件都很烂，为了优化渲染效率可以试试安卓的硬件缩放技术，我在真机上已经测试通过，效率确实提升了很多，FPS直线上升。。
+
+原理如下 http://android-developers.blogspot.it/2013/09/using-hardware-scaler-for-performance.html
+
+但是需要拿到Unity android的GLSurfaceView，可是我试过了很多办法就是拿不到它，不过还好Unity 直接提供了方法。
+
+找一个合适的地方调用如下方法即可，这个方法在IOS和Android上都支持，但是经过测试IOS没必要使用，在android上还是很有必要使用的。
+
+Screen.SetResolution(960,640,true);
+
+这样会强制把屏幕的分辨率指定成960X640. 但是你的目标设备的分辨率可能不是3:2的，所以你需要做一个算法，假设搭建界面的时候是960X640，此时运行在1280X760的分辨率上，1280X760 和 960X640 等比换算一下 即可。代码我就不贴了。。。使用如下代码可以取出当前手机的屏幕分辨率，根据算法算一下就行了。
+
+int width = Screen.currentResolution.width;
+int height = Screen.currentResolution.height;
+
+还有一点需要注意，经过我的测试发现 横屏游戏时 Android切到后台在返回前台渲染区域变成竖屏了。 所以每次切到前台的时候一定要强制设置一下分辨率。
+
+	void OnApplicationPause(bool paused)
+	{
+		Logger.Print("paused:", paused);
+		if (!paused) {
+				Screen.SetResolution(960,640,true);
+		} 
+	}
+
+还有个问题就是当调用Screen.SetResolution(960,640,true); 紧跟着就打开NGUI界面，可能会造成UI闪烁一下。我想最好可以通过unity的GLSurfaceView在java内层去设置分辨率，但是我不知道怎么取到GLSurfaceView，或者如果有朋友知道请在下面留言告诉我一下。
+
+做一个比较简单的界面， 界面上就写上 “正在加载中..”几个大字，因为背景是黑的闪就闪吧反证我们的策划说能忍。。
+
+	IEnumerator Start()
+	{
+				Screen.SetResolution(960,640,true);
+		yield return new WaitForSeconds(0.1f);
+		//在下面代码里面在处理设置完分辨率以后的逻辑
+	}
+
+可能我上面写 Screen.SetResolution(960,640,true); 可能会误导大家，我举个里例子。开发的时候布的界面是 960X640 ，此时运行在 1280X720上。 那么 修改后的分辨率 就是 Screen.SetResolution(1138,640,true);
+
+因为 1138 = 1280/（720/640）但是你还要去考虑 比 960X640 大的情况 或者 比 960X640小的情况。 总之就是等比例的计算 目标分辨率。如果一个是960 另一个就按比例算， 如果一个是640 另一个也按比例算。 
+
+设置分辨率以后不会影响到你的代码原有的任何逻辑，效率确实提升了很多，建议大家最好在android上用一下。嘿嘿。欢迎大家在下面给 @雨松MOMO 留言，大家一起讨论。。
+
+	private int scaleWidth =0;
+	private int scaleHeight =0;
+	public void setDesignContentScale()
+	{
+#if UNITY_ANDROID
+		if(scaleWidth ==0 && scaleHeight ==0)
+		{
+			int width = Screen.currentResolution.width;
+			int height = Screen.currentResolution.height;
+			int designWidth = 960;
+			int designHeight = 640;
+			float s1 = (float)designWidth / (float)designHeight;
+			float s2 = (float)width / (float)height;
+			if(s1 < s2) {
+				designWidth = (int)Mathf.FloorToInt(designHeight * s2);
+			} else if(s1 > s2) {
+				designHeight = (int)Mathf.FloorToInt(designWidth / s2);
+			}
+			float contentScale = (float)designWidth/(float)width;
+			if(contentScale < 1.0f) { 
+				scaleWidth = designWidth;
+				scaleHeight = designHeight;
+			}
+		}
+		if(scaleWidth >0 && scaleHeight >0)
+		{
+			if(scaleWidth % 2 == 0) {
+				scaleWidth += 1;
+			} else {
+				scaleWidth -= 1;					
+			}
+			Screen.SetResolution(scaleWidth,scaleHeight,true);
+		}
+#endif
+	}
+ 
+	void OnApplicationPause(bool paused)
+	{
+		if (paused) {
+		} else {
+			setDesignContentScale();
+		}
+	}
+
+我在补充一下： 这个方法不会影响NGUI的自适应，也不会影响游戏原有的任何逻辑也不用在改别的代码，在各种Android分辨率上都可行，效率就可以提升很多。我们项目已经轰轰烈烈的使用了，唯一的缺点就是设置分辨率的时候屏幕会闪一下。可以做一个黑屏 或者 几个字“正在加载中” 。。 所以我想在java层去改， 但是拿不到GLSurfaceView 。。如果有知道的朋友请在下面留言告诉我。谢谢。
+
+这两天测试发现有时候按下手机的关机键，然后在返回游戏发现游戏屏幕竖过来了（我们是横屏游戏）。而且是随机性的，效果如下图所示:
+
+{{./1.png}}
+
+在这两篇文章中我找到了答案
+
+http://blog.k-res.net/archives/1702.html
+
+http://stackoverflow.com/questions/7185644/android-opengl-crazy-aspect-ratio-after-sleep
+
+解决这个问题需要在java这一层来配合，需要改一下你的UnityPlayerNativeActivity.java
+	private int width,height;
+	// Setup activity layout
+	@Override protected void onCreate (Bundle savedInstanceState)
+	{
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		super.onCreate(savedInstanceState);
+ 
+		getWindow().takeSurface(null);
+		setTheme(android.R.style.Theme_NoTitleBar_Fullscreen);
+		getWindow().setFormat(PixelFormat.RGB_565);
+ 
+		mUnityPlayer = new UnityPlayer(this);
+		if (mUnityPlayer.getSettings ().getBoolean ("hide_status_bar", true))
+			getWindow ().setFlags (WindowManager.LayoutParams.FLAG_FULLSCREEN,
+								   WindowManager.LayoutParams.FLAG_FULLSCREEN);
+ 
+		setContentView(mUnityPlayer);
+		mUnityPlayer.requestFocus();
+		
+		//保存一下游戏屏幕的宽和高
+		DisplayMetrics dm = getResources().getDisplayMetrics();
+		width = dm.widthPixels;
+		height = dm.heightPixels;
+		
+	}
+
+还是在这个类里。
+
+	// This ensures the layout will be correct.
+	@Override public void onConfigurationChanged(Configuration newConfig)
+	{
+		super.onConfigurationChanged(newConfig);
+		//在这里强制设置一下屏幕的宽和高
+		mUnityPlayer.getView().getLayoutParams().width = width;
+		mUnityPlayer.getView().getLayoutParams().height = height;
+		Log.v("unity", width+" " + height );
+		
+		mUnityPlayer.configurationChanged(newConfig);
+		
+	}
+
+好了，目前我用这个方法已经完美解决了这个问题
+

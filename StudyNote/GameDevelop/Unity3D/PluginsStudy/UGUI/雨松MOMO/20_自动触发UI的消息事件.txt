@@ -1,0 +1,50 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T23:02:00+08:00
+
+====== 20 自动触发UI的消息事件 ======
+Created 星期二 05 四月 2016
+
+转自：http://www.xuanyusong.com/archives/3760
+
+下面直接上代码。
+
+using UnityEngine;
+using UnityEditor;
+using System;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+ 
+ 
+public class MyScript : MonoBehaviour
+{
+ 
+	public Button uiButton;
+	public Image uiImage;
+ 
+	public void Click(GameObject go)
+	{
+		Debug.Log(go.name);
+	
+	}
+	
+	void OnGUI()
+	{
+ 
+		if(GUILayout.Button("Auto Button"))
+		{
+			ExecuteEvents.Execute<IPointerClickHandler>(uiButton.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerClickHandler);
+			ExecuteEvents.Execute<ISubmitHandler>(uiButton.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.submitHandler);
+		}
+		
+		if(GUILayout.Button("Auto Image"))
+		{
+			ExecuteEvents.Execute<IPointerClickHandler>(uiImage.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerClickHandler);
+		}
+		
+	}
+ 
+}
+
+Handler大家可以去这里查 http://docs.unity3d.com/Manual/SupportedEvents.html
+

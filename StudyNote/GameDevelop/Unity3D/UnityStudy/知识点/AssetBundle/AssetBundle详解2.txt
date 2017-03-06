@@ -1,0 +1,99 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-03-06T21:54:09+08:00
+
+====== AssetBundle详解2 ======
+Created 星期日 06 三月 2016
+
+	新版本的AssetBundle在打包的时候多了一个叫做BuildPipeline.BuildAssetBundles(outputPath)的方法，然后每一个资源可以设置一个assetBundleName。只要你调用这个方法，那么所有已经设置过assetBundleName的资源，就会自动打包，具体的好处有：
+	
+	1、可以直接在编辑器UI上设置操作
+	2、提供了更简便的脚本API
+	3、Unity本身会处理所有的依赖关系
+	4、生成了一种叫做manifest的文件，用于记录资源之间的依赖关系，并以链式结构记录，修改时只需修改链的其中一环
+	5、增量打包功能。
+	
+	以上的好处，是官方说明的，我大概操作了一下，说的都是事实，只是使用时有点需要注意的地方。
+	
+	很明显的看出，这些优点，正是我那位同事已经做过的事情，和一些暂时没有做到的事情。
+	
+	先来说说最多人关心的问题，Unity自己处理依赖关系。
+	
+		实际上来说，所有需要打包成AssetBundle的资源，你是要先赋予它一个assetBundleName的，在它有了assetBundleName之后，实际上它的信息已经存在于AssetDataBase里面了。所以在打包的时候，只需要调用BuildPipeline.BuildAssetBundles方法，它会把记录了的在AssetDataBase里面的所有资源先计算出依赖关系，再拆分打包。这个步骤是一点问题都没有的。要注意的是，你所有依赖的资源都必须赋予assetBundleName，不然，依赖就不会被拆分。
+	
+		在加载的时候，AssetBundle的特性是和旧版本一样的，就是当一个目标资源的依赖资源已经存在与内存中（也就是已经被加载过了），那么在加载目标资源的时候，Unity会自动的帮你找到依赖关系。所以在加载的时候实际上还是要你手动加载依赖资源的。这一点和旧版本一样。
+	
+	再来说说打包工具的编写。
+	
+		虽然官方说得很美好，一句BuildPipeline.BuildAssetBundles(outputPath)就可以直接把所有资源都打包了，而需要打包的资源可以在编辑器界面直接输入。但实际上由于上面说到的必须赋予每一个依赖资源assetBundleName，你不可能每一个资源去手动的查找用到的依赖资源再在编辑器输入名字，所以旧版本的打包流程还是要的。
+	
+		首先，你可以遍历需要打包的文件夹，把所有需要打包的预设或者资源都找到，然后设置assetBundleName，然后，通过AssetDatabase.GetDependencies方法逐个找到资源的依赖资源路径，用AssetDatabase.AssetPathToGUID算出每个资源的唯一ID，然后将唯一ID当做assetBundleName赋予给每个依赖资源。最后，调用BuildPipeline.BuildAssetBundles(outputPath)打包到指定位置。
+	
+		最后说说加载。
+	
+	由于依赖关系都存在于manifest中，所以在加载资源之前，要先加载manifest文件。
+
+	实际上在打包的时候，会有一个总的manifest文件，叫做AssetBundle.manifest，然后每一个小的资源分别有一个自己的manifest文件。在我们加载的时候，需要先把总的AssetBundle加载进来。
+
+	比如这样：
+
+		string mUrl = Cdn + "AssetBundle";
+		WWW mwww = WWW.LoadFromCacheOrDownload(mUrl, 0);
+		yield return mwww;
+		if (!string.IsNullOrEmpty(mwww.error))
+		{
+			Debug.Log(mwww.error);
+		}
+		else
+		{
+			AssetBundle mab = mwww.assetBundle;
+			AssetBundleManifest mainfest = (AssetBundleManifest)mab.LoadAsset("AssetBundleManifest");
+			mab.Unload(false);
+
+	其中Cdn是我的资源路径，加载完之后，得到了一个AssetBundleManifest 对象。
+
+	然后根据我们需要加载的资源名称，获得所有依赖资源：
+
+	string[] dps = mainfest.GetAllDependencies(realName);
+		AssetBundle[] abs = new AssetBundle[dps.Length];
+	for (int i = 0; i < dps.Length; i++)
+	{
+		string dUrl = Cdn + dps[i];
+				WWW dwww = WWW.LoadFromCacheOrDownload(dUrl, mainfest.GetAssetBundleHash(dps[i]));
+				yield return dwww;
+				abs[i] = dwww.assetBundle;
+	}
+
+	其中realName是想加载的AssetBundle的名字，需要带扩展名。
+
+	通过了这一步，所有的依赖资源都加载完了，可以加载目标资源了：
+
+	WWW www = WWW.LoadFromCacheOrDownload(url, mainfest.GetAssetBundleHash(realName+".ab"), 0);
+		yield return www;
+        
+	if (!string.IsNullOrEmpty(www.error))
+	{
+		Debug.Log(www.error);
+	}
+	else
+	{
+		AssetBundle ab = www.assetBundle;
+				GameObject gobj = ab.LoadAsset(realName) as GameObject;
+				if (gobj != null)
+			Instantiate(gobj);
+		ab.Unload(false);
+	}
+
+	foreach (AssetBundle ab in abs)
+	{
+		ab.Unload(false);
+	}
+
+	到这一步，所有的资源都加载完毕了。注意的是，记得Unload，不然下次就加不进来了。或者不Unload的话，就做一个字典记录所有加载过的AssetBundle，还有它们的引用计数器。那样就可以先判断是否存在在加载。
+	
+	以上就是Unity5.0的AssetBundle的使用方法了。下面来吐槽一下。
+	1、看Unite2014大会的视频介绍时，感觉这个东西真好，提供了这么强大的功能和这么简单的API。但实际用过之后，发现整个打包和加载的过程其实和旧版差不多，真正有意义的功能，是manifest的链式结构，和增量打包功能。
+	2、我在没有使用之前，以为可以按照文件夹结构来打包，那样的话，就可以简单的从Resources.Load和外部WWW加载中做切换，只需要替换一个CDN地址就可以了。但实际上Unity把所有AssetBundle都打包在了同一个目录，在这个转换的过程中，我们还需要记录一下两者的对应关系。
+	3、资源打包的策略有时候和项目的设计本身有关，如果是阶段性很明确的资源管理，可能旧版的AssetBundle打包也不错。
+	4、现在只看了Unity5的AssetBundle觉得不错，但又看了一下其他功能，发现Unity5的很多功能都改了，这样的大改动对于旧项目来说有可能是影响非常大的，是不是值得为了新的AssetBundle而升级Unity，还是需要更多的评估。
+

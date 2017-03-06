@@ -1,0 +1,290 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T10:33:40+08:00
+
+====== IOS全自动编辑framework plist oc代码 ======
+Created 星期二 10 一月 2017
+
+Unity打IOS时会先生成一个Xcode工程，如果你需要增加一些第三方的framework那么需要手动一条一条的添加，这太烦了。。而且可能你还需要修改Plist文件，甚至还可能要修改unity自动生成的oc代码，每次打包都要修改的话，那太累了。。这篇文章就是全自动打包的第一步。。建议使用XUPorter，我在它的基础上拓展了两个类，一个用来修改plist，一个用来修改unity生成出来的OC代码。文章的最后我会给出代码。。
+
+那么我用一个比较变态的SDK举个例子ShareSDK，它就需要自动添加framework，修改plist，还有要修改oc的代码。第一步打开XUPorter/Mods/share.projmods 文件。
+
+{
+	"group": "share",
+	"libs": ["libicucore.dylib","libz.1.2.5.dylib"],
+	"frameworks": [
+		"SystemConfiguration.framework",
+		"QuartzCore.framework",
+			"CoreTelephony.framework",
+			"Security.framework",
+		"AdSupport.framework:optional",
+		"MessageUI.framework",
+		"StoreKit.framework",
+		"AudioToolbox.framework",
+		"QuartzCore.framework"
+				   ],
+	"headerpaths": [],
+	"files":   [
+				"ShareSDK/Connection/SinaWeiboConnection.framework",
+				"ShareSDK/Connection/WeChatConnection.framework",
+				"ShareSDK/Core/AGCommon.framework",
+				"ShareSDK/Core/ShareSDKCoreService.framework",
+				"ShareSDK/ShareSDK.framework"
+				],
+	"folders": ["ShareSDK/"],    
+	"excludes": ["^.*.meta$", "^.*.mdown$", "^.*.pdf$"],
+	"linker_flags": []
+}
+
+frameworks分成两种，一种是系统自带的framework还有一种是第三方的framework。 “frameworks”节点里面放的是系统自带的frameworks。”files”节点里面放的是第三方做出来的framework。 尤其是第三方的framework如果位置放的不对，就不会被xcode所引用的！切记切记！！
+
+folders:可以把某个文件夹下的所有文件拷贝在xcode工程里面，一般sdk都会附带一些oc的代码文件，最好通过folders把oc的代码拷贝在工程里面。或者你也可以把oc的代码放在plugins下面，同样打包的时候也会拷贝进xcode工程。
+
+unity打完IOS或者Android包以后会自动回调一个静态方法。
+[PostProcessBuild (100)]
+	public static void OnPostProcessBuild (BuildTarget target, string pathToBuiltProject)
+
+ 自动添加framework的原理其实就是等包打完以后，在这个方法里面进行文件的操作，把需要的framework plist oc 代码拷贝进去，或者修改它们。。
+
+using UnityEngine;
+ 
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.Callbacks;
+using UnityEditor.XCodeEditor;
+using System.Xml;
+#endif
+using System.IO;
+ 
+public static class XCodePostProcess
+{
+	#if UNITY_EDITOR
+	[PostProcessBuild (100)]
+	public static void OnPostProcessBuild (BuildTarget target, string pathToBuiltProject)
+	{
+		if (target != BuildTarget.iPhone) {
+			Debug.LogWarning ("Target is not iPhone. XCodePostProcess will not run");
+			return;
+		}
+ 
+		//得到xcode工程的路径
+		string path = Path.GetFullPath (pathToBuiltProject);
+ 
+		// Create a new project object from build target
+		XCProject project = new XCProject (pathToBuiltProject);
+ 
+		// Find and run through all projmods files to patch the project.
+		// Please pay attention that ALL projmods files in your project folder will be excuted!
+		//在这里面把frameworks添加在你的xcode工程里面
+		string[] files = Directory.GetFiles (Application.dataPath, "*.projmods", SearchOption.AllDirectories);
+		foreach (string file in files) {
+			project.ApplyMod (file);
+		}
+ 
+		//增加一个编译标记。。没有的话sharesdk会报错。。
+		project.AddOtherLinkerFlags("-licucore");
+ 
+		//设置签名的证书， 第二个参数 你可以设置成你的证书
+		project.overwriteBuildSetting ("CODE_SIGN_IDENTITY", "xxxxxx", "Release");
+		project.overwriteBuildSetting ("CODE_SIGN_IDENTITY", "xxxxxx", "Debug");
+ 
+		// 编辑plist 文件
+		EditorPlist(path);
+ 
+		//编辑代码文件
+		EditorCode(path);
+ 
+		// Finally save the xcode project
+		project.Save ();
+ 
+	}
+ 
+	private static void EditorPlist(string filePath)
+	{
+ 
+		XCPlist list =new XCPlist(filePath);
+		string bundle = "com.yusong.momo";
+ 
+		string PlistAdd = @"  
+			<key>CFBundleURLTypes</key>
+			<array>
+			<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLIconFile</key>
+			<string>Icon@2x</string>
+			<key>CFBundleURLName</key>
+			<string>"+bundle+@"</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+			<string>ww123456</string>
+			</array>
+			</dict>
+			</array>";
+ 
+		//在plist里面增加一行
+		list.AddKey(PlistAdd);
+		//在plist里面替换一行
+		list.ReplaceKey("<string>com.yusong.${PRODUCT_NAME}</string>","<string>"+bundle+"</string>");
+		//保存
+		list.Save();
+ 
+	}
+ 
+	private static void EditorCode(string filePath)
+	{
+		//读取UnityAppController.mm文件
+		XClass UnityAppController = new XClass(filePath + "/Classes/UnityAppController.mm");
+ 
+		//在指定代码后面增加一行代码
+		UnityAppController.WriteBelow("#include \"PluginBase/AppDelegateListener.h\"","#import <ShareSDK/ShareSDK.h>");
+ 
+		//在指定代码中替换一行
+		UnityAppController.Replace("return YES;","return [ShareSDK handleOpenURL:url sourceApplication:sourceApplication annotation:annotation wxDelegate:nil];");
+ 
+		//在指定代码后面增加一行
+		UnityAppController.WriteBelow("UnityCleanup();\n}","- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url\r{\r    return [ShareSDK handleOpenURL:url wxDelegate:nil];\r}");
+ 
+	}
+ 
+	#endif
+}
+
+在回到ShareSDK上，在接微信平台的时候，它们需要在pList 里面增加URL types选项，这里我通过XCPlist增加一行 或者替换一行。
+
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+ 
+namespace UnityEditor.XCodeEditor
+{
+	public partial class XCPlist : System.IDisposable
+	{
+		private string filePath;
+		List<string> contents = new List<string>();
+		public XCPlist(string fPath)
+		{
+				filePath = Path.Combine( fPath, "info.plist" );
+				if( !System.IO.File.Exists( filePath ) ) {
+					Debug.LogError( filePath +"路径下文件不存在" );
+				return;
+			}
+ 
+				FileInfo projectFileInfo = new FileInfo( filePath );
+			StreamReader sr = projectFileInfo.OpenText();
+			while (sr.Peek() >= 0) 
+			{
+				contents.Add(sr.ReadLine());
+			}
+			sr.Close();
+ 
+		}
+		public void AddKey(string key)
+		{
+				if(contents.Count < 2)
+						return;
+				contents.Insert(contents.Count - 2,key);
+ 
+		}
+ 
+		public void ReplaceKey(string key,string replace){
+			for(int i = 0;i < contents.Count;i++){
+					if(contents[i].IndexOf(key) != -1){
+							contents[i] = contents[i].Replace(key,replace);
+					}
+			}
+		}
+ 
+		public void Save()
+		{
+				StreamWriter saveFile = File.CreateText(filePath);
+			foreach(string line in contents)
+					saveFile.WriteLine(line);
+			saveFile.Close();
+			}
+ 
+		public void Dispose()
+		{
+ 
+		}
+	}
+}
+
+ ShareSDK在接入微信平台的时候 必须修改Unity生成的UnityAppController.mm 文件，这里我通过 XClass 自动修改UnityAppController.mm生成的代码。 主要是增加代码和替换代码 两部分。。
+
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+ 
+namespace UnityEditor.XCodeEditor
+{
+	public partial class XClass : System.IDisposable
+	{
+ 
+		private string filePath;
+ 
+		public XClass(string fPath)
+		{
+			filePath = fPath;
+			if( !System.IO.File.Exists( filePath ) ) {
+					Debug.LogError( filePath +"路径下文件不存在" );
+					return;
+			}
+		}
+ 
+		public void WriteBelow(string below, string text)
+		{
+			StreamReader streamReader = new StreamReader(filePath);
+			string text_all = streamReader.ReadToEnd();
+			streamReader.Close();
+ 
+			int beginIndex = text_all.IndexOf(below);
+			if(beginIndex == -1){
+				Debug.LogError(filePath +"中没有找到标致"+below);
+				return; 
+			}
+ 
+			int endIndex = text_all.LastIndexOf("\n", beginIndex + below.Length);
+ 
+			text_all = text_all.Substring(0, endIndex) + "\n"+text+"\n" + text_all.Substring(endIndex);
+ 
+			StreamWriter streamWriter = new StreamWriter(filePath);
+			streamWriter.Write(text_all);
+			streamWriter.Close();
+		}
+ 
+		public void Replace(string below, string newText)
+		{
+			StreamReader streamReader = new StreamReader(filePath);
+			string text_all = streamReader.ReadToEnd();
+			streamReader.Close();
+ 
+			int beginIndex = text_all.IndexOf(below);
+			if(beginIndex == -1){
+				Debug.LogError(filePath +"中没有找到标致"+below);
+				return; 
+			}
+ 
+			text_all =  text_all.Replace(below,newText);
+			StreamWriter streamWriter = new StreamWriter(filePath);
+			streamWriter.Write(text_all);
+			streamWriter.Close();
+ 
+		}
+ 
+		public void Dispose()
+		{
+ 
+		}
+	}
+}
+
+像这样，我就可以把unity生成的代码修改了。。
+
+{{./1.png}}
+
+最后是工程[[../../../../../3rd_file/unity_67_自动增加framework.unitypackage|unity_67_自动增加framework]]
+
+建议大家把工程下载下来看看一基本上就明白它的工作原理了。如果你掌握者本篇文章的知识 那么恭喜你 自动化打包就已经完成了一半。。 现在我们已经可以自动化生成 xcode工程了，等有时间的话我会把下一半shell 自动化打包.ipa的方法在整理出来。。

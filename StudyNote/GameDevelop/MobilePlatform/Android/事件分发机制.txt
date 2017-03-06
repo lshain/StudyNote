@@ -1,0 +1,7 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-17T10:04:18+08:00
+
+====== 事件分发机制 ======
+Created 星期三 17 八月 2016
+

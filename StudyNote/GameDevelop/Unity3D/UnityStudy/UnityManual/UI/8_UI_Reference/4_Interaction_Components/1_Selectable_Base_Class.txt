@@ -1,0 +1,15 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-08T15:04:21+08:00
+
+====== 1 Selectable Base Class ======
+Created 星期五 08 四月 2016
+
+===== Selectable Base Class =====
+The Selectable Class is the base class for all the interaction components and it handles the items that are in common.
+
+Property: 				Function:
+Interactible 			This determines if this component will accept input. When it is set to false interaction is disabled and the transition state will be set to the disabled state.
+Transition 			Within a selectable component there are several Transition Options depending on what state the selectable is currently in. The different states are: normal, highlighted, pressed and disabled.
+Navigation 			There are also a number of Navigation Options to control how keyboard navigation of the controls is implemented.
+

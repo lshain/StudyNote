@@ -1,0 +1,45 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-12T10:36:29+08:00
+
+====== Type ======
+Created 星期五 12 二月 2016
+
+=== Type中的属性: ===
+
+=== IsGenericType ===
+用3个实例说明:
+typeof(DateTime).IsGenericType : false
+typeof(List<int>).IsGenericType: true
+typeof(Dictionary<,>).IsGenericType:true
+
+类型如果是泛型则为 true
+
+=== IsGenericTypeDefinition ===
+用2个实例说明:
+typeof(List<int>).IsGenericTypeDefintion : false
+typeof(List<>).IsGenericTypeDefinition : true
+
+IsGenericTypeDefinition ： 获取一个值，该值指示当前 Type 是否表示可以用来构造其他泛型类型的泛型类型定义。
+也就是说表明 这个 type 是否可以用于构建泛型定义
+比如 List<> 可以通过反射构建出 List,List
+例子:
+var typeList = typeof(List<>);        
+Type typeDataList = typeList.MakeGenericType( typeof(DateTime)); //通过List<>构建出List<DateTime>
+
+=== IsGenericParameter ===
+这个Property用于表明当前类型是一个T类型
+例如: 
+typeof(List<>).GetGenericArguments()
+返回: new Type[]{ typeof(T) }
+此时: 
+	typeof(T).IsGenericParameter == True
+	typeof(T).GenericParameterPosition  == 0
+
+对比:
+typeof(List<DateTime>).GetGenericArguments()
+返回: new Type[]{ typeof(DateTime) }
+此时: 
+	typeof(DateTime).IsGenericParameter  == False
+	typeof(DateTime).GenericParameterPosition    : throw exception
+

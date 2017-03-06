@@ -1,0 +1,56 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T15:36:07+08:00
+
+====== 2 Diffuse Shading-创建一个基本的Surface Shader ======
+Created 星期日 12 六月 2016
+
+转自: http://blog.csdn.net/candycat1992/article/details/17130591
+
+这一次的工作非常简单，我们主要是为了了解Unity Shaders的基本工作原理。
+
+=== 准备工作 ===
+1. 创建一个新的Unity Project
+2. 在Assets目录下新建一个文件夹：Shaders
+3. 在Assets目录下新建一个文件夹：Materials
+
+=== 实现 ===
+1. 在Shaders文件夹下，点击右键新建一个Shader，命名为BasicDiffuse，并打开它；
+2. 在Materials文件夹下，创建一个Material，并使用我们之前创建的BasicDiffuse.shader；
+3. 创建一个Sphere，并把之前创建的Material拖到它上面，查看效果；
+4. 你还可以给Material添加一个texture。
+
+=== 解释 ===
+打开BasicDiffuse.shader后，我们可以发现Unity实际上已经为我们写好了很多代码：
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			half4 c = tex2D (_MainTex, IN.uv_MainTex);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+1. 第一行表明了这个shader在Unity中的路径，它会出现在你选择某个Material的shader时的下拉列表里，并且可以随时更改；
+2. 最后一行表明，当这个shader在当前环境中运行失败后，会默认调用Unity自带的Diffuse Shader；
+3. 其他内容在下面的章节会讲到。
+
+Unity内部使用的是Cg来实现的，它把这些实现细节封装了起来，提供我们一种基于构件的编写shader的方法，像调整图片的uv坐标、矩阵转换等工作它都帮你做好了。而以前，我们需要重复编写一些基本功能的代码，来从头创建一个shader。当你的经验逐渐丰富起来，自然而然就会想要了解Unity是怎样处理图像处理单元（GPU）的工作的。如果你想了解Unity是怎样调用Cg的，可以到Unity的安装目录Unity4\Editor\Data\CGIncludes  下查看。在靠后面的一些章节中，会讲到。

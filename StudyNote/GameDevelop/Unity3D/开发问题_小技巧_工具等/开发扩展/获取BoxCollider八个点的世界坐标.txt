@@ -1,0 +1,60 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T10:56:41+08:00
+
+====== 获取BoxCollider八个点的世界坐标 ======
+Created 星期一 09 一月 2017
+
+我们想把场景中的BoxCollider的坐标点导出出来让服务器也能用。虽然BoxCollider自身的大小可以获取出来，但是如果有父对象，并且有坐标的变化那算起来就比较麻烦了。还好unity提供了一个方法，真的很便捷。如下图所示，我用了8个标记点来标记获取到的boxcollider的坐标。旋转、缩放都可以计算出正确的坐标点来。
+
+{{./1.png}}
+
+using UnityEngine;
+using System.Collections;
+ 
+public class Test : MonoBehaviour 
+{
+	//8个标志位 ，用来在scene里预览
+	public Transform[] points;
+	//需要提取Boxcollier顶点的对象
+	public BoxCollider cube;
+
+	void Start()
+	{
+		//父节只能调节位置， 不能调节旋转和缩放。
+		Transform parent = cube.transform.parent;
+		while(parent!=null)
+		{
+			parent.localRotation = Quaternion.Euler(Vector3.zero);
+			parent.localScale = Vector3.one;
+			parent = parent.parent;
+		}
+	}
+ 
+	void Update()
+	{
+		Vector3 [] veces = GetBoxColliderVertexPositions(cube);
+		for(int i =0; i< veces.Length; i++)
+		{
+			points[i].transform.position = veces[i];
+		}
+	}
+ 
+	Vector3[] GetBoxColliderVertexPositions (BoxCollider boxcollider) 
+	{
+		var vertices = new Vector3[8];
+		//下面4个点
+		vertices[0] = boxcollider.transform.TransformPoint(boxcollider.center + new Vector3(boxcollider.size.x, -boxcollider.size.y, boxcollider.size.z) * 0.5f);
+		vertices[1] = boxcollider.transform.TransformPoint( boxcollider.center + new Vector3(-boxcollider.size.x, -boxcollider.size.y, boxcollider.size.z) * 0.5f);
+		vertices[2] = boxcollider.transform.TransformPoint( boxcollider.center + new Vector3(-boxcollider.size.x, -boxcollider.size.y, -boxcollider.size.z) * 0.5f);
+		vertices[3] = boxcollider.transform.TransformPoint(boxcollider.center + new Vector3(boxcollider.size.x, -boxcollider.size.y, -boxcollider.size.z) * 0.5f);
+		//上面4个点
+		vertices[4] = boxcollider.transform.TransformPoint(boxcollider.center + new Vector3(boxcollider.size.x, boxcollider.size.y, boxcollider.size.z) * 0.5f);
+		vertices[5] = boxcollider.transform.TransformPoint( boxcollider.center + new Vector3(-boxcollider.size.x, boxcollider.size.y, boxcollider.size.z) * 0.5f);
+		vertices[6] = boxcollider.transform.TransformPoint( boxcollider.center + new Vector3(-boxcollider.size.x, boxcollider.size.y, -boxcollider.size.z) * 0.5f);
+		vertices[7] = boxcollider.transform.TransformPoint(boxcollider.center + new Vector3(boxcollider.size.x, boxcollider.size.y, -boxcollider.size.z) * 0.5f);
+ 
+		return vertices;
+	}
+}
+

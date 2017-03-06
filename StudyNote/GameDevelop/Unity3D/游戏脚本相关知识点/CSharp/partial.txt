@@ -1,0 +1,130 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-12T11:22:13+08:00
+
+====== partial ======
+Created 星期五 12 二月 2016
+
+=== 1. 什么是局部类型？ ===
+
+C# 2.0 引入了局部类型的概念。局部类型允许我们将一个类、结构或接口分成几个部分，分别实现在几个不同的.cs文件中。
+
+局部类型适用于以下情况：
+
+(1) 类型特别大，不宜放在一个文件中实现。
+(2) 一个类型中的一部分代码为自动化工具生成的代码，不宜与我们自己编写的代码混合在一起。
+(3) 需要多人合作编写一个类。
+
+局部类型是一个纯语言层的编译处理，不影响任何执行机制——事实上C#编译器在编译的时候仍会将各个部分的局部类型合并成一个完整的类。
+
+public partial class Program
+{
+	 static void Main(string[] args)
+	 {
+	 }
+}
+
+partial class Program
+{ 
+	 public void Test()
+	 { 
+	 }
+}
+
+=== 2. 局部类型的限制 ===
+
+(1) 局部类型只适用于类、接口、结构，不支持委托和枚举。
+(2) 同一个类型的各个部分必须都有修饰符 partial。
+(3) 使用局部类型时，一个类型的各个部分必须位于相同的命名空间中。
+(4) 一个类型的各个部分必须被同时编译。
+
+=== 3. 局部类型的注意点 ===
+
+(1) 关键字partial是一个上下文关键字，只有和 class、struct、interface 放在一起时才有关键字的含义。因此partial的引入不会影响现有代码中名称为partial的变量。
+(2) 局部类型的各个部分一般是分开放在几个不同的.cs文件中，但C#编译器允许我们将他们放在同一文件中。
+
+=== 4. 局部类型的应用特性 ===
+
+在局部类型上的特性具有“累加”效应。
+
+[Attribute1, Attribute2("Hello")]
+partial class Class1{}
+
+[Attribute3, Attribute2("Exit")]
+partial class Class1{}
+
+相当于
+
+[Attribute1, Attribute2("Hello"), Attribute3, Attribute2("Exit")]
+class Class1 {}
+
+注：Attribute2属性允许在类上多次使用。
+
+=== 5. 局部类型上的修饰符 ===
+
+(1) 一个类型的各个部分上的访问修饰符必须维持一致性。
+(2) 如果一个类型有一个部分使用了abstract修饰符，那么整个类都将被视为抽象类。
+(3) 如果一个类型有一个部分使用了 sealed 修饰符，那么整个类都将被视为密封类。
+(4) 一个类的各个部分不能使用相互矛盾的修饰符，比如不能在一个部分上使用abstract，又在另一个部分上使用sealed。
+
+=== 6. 局部类型的基类和接口 ===
+
+(1) 一个类型的各个部分上指定的基类必须一致。某个部分可以不指定基类，但如果指定，则必须相同。
+(2) 局部类型上的接口具有“累加”效应。
+
+partial class Class2: Iinterface1, Iinterface2 {}
+partial class Class2: Iinterface3 {}
+partial class Class2: Iinterface2 {}
+
+相当于
+
+class Class2: Iinterface1, Iinterface2, Iinterface3 {}
+
+把所有的源代码作为一个类型保存在一个单独的文件里是一个好的编程习惯，但有时候一个类型变得过于庞大以至于这样做成为一个不切实际的约束。此外，编程人员经常使用源代码生成器来产生一个应用程序的初始结构，然后再修改产生的代码。不幸的是，当源代码在将来某个时候再次发布时，已存在的修改就要被覆盖了。
+
+Partial types允许把类，结构和接口打破为多个代码碎片存在不同的源代码文件，以便于简化开发和维护。加之partial types允许机器产生的和用户编写的类型部分分离，这样就可以方便增加工具产生的代码。
+
+Partial，是一个新的类型修饰符，在把一个类型定义在多个部分的时候使用。下面是一个partial class的示例，以两个部分实现。这两个部分可能在两个不同的源代码文件，比如说第一个部分是由一个数据库映射工具产生的，而第二个部分是手工编写的。
+
+public partial class Customer
+{
+	private int id;
+	private string name;
+	private string address;
+	private List<Order> orders;
+	public Customer() {
+        
+	}
+}
+
+public partial class Customer
+{
+	public void SubmitOrder(Order order) {
+		orders.Add(order);
+	}
+
+	public bool HasOutstandingOrders() {
+		return orders.Count > 0;
+	}
+}
+
+当上面的两个部分在一起编译，结果产生的代码就好像这个类是写在一个单元里一样。
+
+public class Customer
+{
+	private int id;
+	private string name;
+	private string address;
+	private List<Order> orders;
+	public Customer() {
+        
+	}
+	public void SubmitOrder(Order order) {
+		orders.Add(order);
+	}
+	public bool HasOutstandingOrders() {
+		return orders.Count > 0;
+	}
+}
+
+一个partial type的所有部分必须在一起编译，这样所有的部分才能在编译的时候整合在一起。特别的是partial types不允许加入已经编译好的类型。

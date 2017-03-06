@@ -1,0 +1,53 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-12T17:03:49+08:00
+
+====== 设置自动旋转屏幕默认旋转方向 ======
+Created 星期四 12 一月 2017
+
+转自：http://www.xuanyusong.com/archives/2871
+
+如下图所示，在处理屏幕默认旋转方向的时候可以在这里进行选择，上下左右一共是4个方向。
+{{./1.png}}
+
+策划的需求是游戏采用横屏，但是要求支持两个方向自动旋转，如下图所示，我的设置是这样的。
+
+Default Orientation* Auto Roation 表示游戏支持自动旋转屏幕，但是前提是手机没有锁定屏幕旋转功能。
+
+Landscape Right 和Landscape Left 表示手机屏幕只支持横屏两个方向的自动旋转。
+{{./2.png}}
+
+这里问题就来了，既然设置了两个方向的自动旋转，那么必然会有一个默认的方向。然而Unity默认的方向就是Landscape Left  就是屏幕的正方向在手机Home的左边。大部分IOS游戏都是这个方向，但是在Android上可能就有点问题了，因为Android屏幕的左下角有个返回的按钮，假如你的游戏是横屏，又假如你的游戏操作区域在右下角，那么玩家玩的时候很有可能点到这个返回按钮，那么用户体验就降低了。。
+
+所以策划想让Android版默认正方向让屏幕在Home的右边，但是还必须支持横屏的自动旋转。。可是Unity的面板里根本没有设置带自动旋转，并且设置默认方向的参数。。。我想到在代码里面给它赋值，于是有了下面的代码。似乎问题解决的不完美，因为Unity开机有个启动画面，然而启动画面是在Awake之前执行的，所以虽然在Awake设置了屏幕方向，可是启动画面的方向确还是读取ProjectSetting里的。
+
+	void Awake()
+	{
+		//设置屏幕正方向在Home键右边
+		Screen.orientation = ScreenOrientation.LandscapeRight;
+	}
+ 
+	void Start () 
+	{
+		//设置屏幕自动旋转， 并置支持的方向
+		Screen.orientation = ScreenOrientation.AutoRotation;
+		Screen.autorotateToLandscapeLeft = true;
+		Screen.autorotateToLandscapeRight = true;
+		Screen.autorotateToPortrait = false;
+		Screen.autorotateToPortraitUpsideDown = false;
+	}
+
+所以，我直接在Setting里面就设置默认的正方向屏幕在Home按键的右边。
+{{./3.png}}
+
+在Awake或者Start方法里面，在设置成支持横屏旋转，问题就完美解决了。
+	void Start () 
+	{
+		//设置屏幕自动旋转， 并置支持的方向
+		Screen.orientation = ScreenOrientation.AutoRotation;
+		Screen.autorotateToLandscapeLeft = true;
+		Screen.autorotateToLandscapeRight = true;
+		Screen.autorotateToPortrait = false;
+		Screen.autorotateToPortraitUpsideDown = false;
+	}
+

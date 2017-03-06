@@ -1,0 +1,50 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T22:08:52+08:00
+
+====== 2 UI的深度学习 ======
+Created 星期二 05 四月 2016
+
+转自：http://www.xuanyusong.com/archives/3293
+
+今天抽空研究了一下UGUI的深度，UGUI真是好的不得了。以前用NGUI的时候UI的深度就是一个指定的数值，数值越大越靠前，尤其在布复杂界面的时候，深度值不知道怎么填非常恶心。现在有了UGUI这问题即可迎刃而解呀～～如下图所示，B图片在A图片前面，在看看Hieraychy视图，因为A在B的上面，所以优先渲染A，然后是B。那么B就在A的上面了。。
+
+{{./1.png}}
+
+那么我现在想让A图在B图的上面，那么直接在Hierarchy视图里把B拖拽放在A上面即可。
+
+{{./2.png}}
+
+如果GameObject下面有多个精灵，那么原理是一样的， 优先看父节点在Hierarchys视图中的排序，决定父节点的渲染先后。然后在依次看子节点中的Hierarchy视图的排序。如果还有孙节点一次类推。。这样的话如果没有ABA叠层的情况那么图集永远是一个drawcall.所以在布界面的时候就要花点心思这样drawcall就能节省很多了呢。
+
+如下图所示，在深入一下渲染绘制的顺序
+
+UIMain 和 UINext 是同级目录，因为UINext 在UIMain下面 所以优先渲染UIMain这样UINext将在屏幕最前面。UISub原理一样，由此可得出。
+
+精灵显示从前面的 到后面的排序   NextB > NextA >SubB>SubA>MainA>MainB 。。
+{{./3.png}}
+
+布界面的时候我们可以按照这个排序来让我们的drawCall 最小化。可是如果我想运行的时候在两个图之间插一个图该怎么办？脚本如下所示。
+
+using UnityEngine;
+using System.Collections;
+ 
+public class UIMain : MonoBehaviour {
+ 
+	void Start () 
+	{
+		GameObject button = 	GameObject.Instantiate(Resources.Load<GameObject>("button"))as GameObject;
+		button.transform.parent = transform;
+		button.transform.localPosition = Vector3.zero;
+		button.transform.localScale = Vector3.one;
+ 
+		GameObject AObj = transform.Find("A").gameObject;
+ 
+		GameObject BObj = transform.Find("B").gameObject;
+ 
+		button.transform.SetSiblingIndex(AObj.transform.GetSiblingIndex());
+	}
+}
+
+transform.SetSiblingIndex 和 GetSiblingIndex就是设置与获取 GameObject在兄弟节点的位置。。
+

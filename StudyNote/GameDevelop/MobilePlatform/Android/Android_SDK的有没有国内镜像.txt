@@ -1,0 +1,13 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-03-27T21:04:50+08:00
+
+====== Android SDK的有没有国内镜像 ======
+Created 星期日 27 三月 2016
+
+可以通过以下方式下载：
+1.启动 Android SDK Manager ；
+2.打开主界面，依次选择「Tools」、「Options...」，弹出『Android SDK Manager - Settings』窗口；
+3.在『Android SDK Manager - Settings』窗口中，在「HTTP Proxy Server」和「HTTP Proxy Port」输入框内填入mirrors.neusoft.edu.cn和80，并且选中「Force https://... sources to be fetched using http://......
+4.设置完成后单击「Close」按钮关闭『Android SDK Manager - Settings』窗口返回到主界面；
+5.依次选择「Packages」、「Reload」。

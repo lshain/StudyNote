@@ -1,0 +1,560 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-06T16:06:19+08:00
+
+====== Unity协程（Coroutine）原理深入剖析再续 ======
+Created 星期一 06 六月 2016
+
+转自：http://dsqiu.iteye.com/blog/2049743
+
+		本文主要分为三部分：
+			   **1）yield return， IEnumerator  和 Unity StartCoroutine 的关系和理解**
+**               2）Cortoutine 扩展——Extending Coroutines: Return Values and Error Handling**
+**               3）Cortountine Locking**
+
+		 总之，引用③的一句话：**Coroutines – More than you want to know.**
+
+=== 1）yield return， IEnumerator  和 Unity StartCoroutine 的关系和理解 ===
+		  yield 和 IEnumerator都是C#的东西，前者是一个关键字，后者是枚举类的接口。对于IEnumerator 只引用②对 IEnumerable与IEnumerator区别 的论述：
+
+先贴出 IEnumerable 和 IEnumerator的定义：
+public interface IEnumerable
+{
+	IEnumerator GetEnumerator();
+}
+ 
+public interface IEnumerator
+{
+	bool MoveNext();
+	void Reset();
+ 
+	Object Current { get; }
+}
+
+== IEnumerable和IEnumerator有什么区别？这是一个很让人困惑的问题（在很多forum里都看到有人在问这个问题）。研究了半天，得到以下几点认识： ==
+		 1、一个Collection要支持foreach方式的遍历，必须实现IEnumerable接口（亦即，必须以某种方式返回IEnumerator object）。
+		 2、IEnumerator object具体实现了iterator（通过MoveNext()，Reset()，Current）。
+		 3、从这两个接口的用词选择上，也可以看出其不同：IEnumerable是一个声明式的接口，声明实现该接口的class是“可枚举（enumerable）”的，但并没有说明如何实现枚举器（iterator）；IEnumerator是一个实现式的接口，IEnumerator object就是一个iterator。
+		 4、IEnumerable和IEnumerator通过IEnumerable的GetEnumerator()方法建立了连接，client可以通过IEnumerable的GetEnumerator()得到IEnumerator object，在这个意义上，将GetEnumerator()看作IEnumerator object的factory method也未尝不可。
+
+== IEnumerator  是所有枚举数的基接口。 ==
+		 枚举数只允许读取集合中的数据。枚举数无法用于修改基础集合。   
+		 最初，枚举数被定位于集合中第一个元素的前面。Reset   也将枚举数返回到此位置。在此位置，调用   Current   会引发异常。因此，在读取   Current   的值之前，必须调用   MoveNext   将枚举数提前到集合的第一个元素。   
+		 在调用   MoveNext   或   Reset   之前，Current   返回同一对象。MoveNext   将   Current   设置为下一个元素。   
+		 在传递到集合的末尾之后，枚举数放在集合中最后一个元素后面，且调用   MoveNext   会返回   false。如果最后一次调用   MoveNext   返回   false，则调用   Current   会引发异常。若要再次将   Current   设置为集合的第一个元素，可以调用   Reset，然后再调用   MoveNext。   
+		 只要集合保持不变，枚举数就将保持有效。如果对集合进行了更改（例如添加、修改或删除元素），则该枚举数将失效且不可恢复，并且下一次对   MoveNext   或   Reset   的调用将引发   InvalidOperationException。如果在   MoveNext   和   Current   之间修改集合，那么即使枚举数已经无效，Current   也将返回它所设置成的元素。 
+
+== Yield关键字 ==
+在迭代器块中用于向枚举数对象提供值或发出迭代结束信号。它的形式为下列之一⑥：
+　　yield return <expression_r>;
+　　yield break;
+
+备注 :
+　　计算表达式并以枚举数对象值的形式返回；expression_r 必须可以隐式转换为迭代器的 yield 类型。
+　　yield 语句只能出现在 iterator 块中，该块可用作方法、运算符或访问器的体。这类方法、运算符或访问器的体受以下约束的控制：
+
+　　不允许不安全块。
+　　方法、运算符或访问器的参数不能是 ref 或 out。
+　　yield 语句不能出现在匿名方法中。
+　　当和 expression_r 一起使用时，yield return 语句不能出现在 catch 块中或含有一个或多个 catch 子句的 try 块中。
+　　yield return 提供了迭代器一个比较重要的功能，即取到一个数据后马上返回该数据，不需要全部数据装入数列完毕，这样有效提高了遍历效率。
+
+== Unity StartCoroutine ==
+	  Unity使用 StartCoroutine(routine: IEnumerator): Coroutine 启动协程，参数必须是 IEnumerator 对象。那么Unity在背后做什么神奇的处理呢？
+
+	  StartCoroutine函数的参数我一般都是通过传入一个返回值为 IEnumerator的函数得到的：
+
+	IEnumerator WaitAndPrint(float waitTime) {  
+		yield return new WaitForSeconds(waitTime);  
+		print("WaitAndPrint " + Time.time);  
+	}  
+
+	   在函数内使用前面介绍 yield 关键字返回 IEnumerator 对象，Unity 中实现了 YieldInstruction 作为 yield 返回的基类，有 Cortoutine, WaitForSecondes, WaitForEndOfFrame, WaitForFixedUpdate, WWW 几个子类实现。StartCoroutine 将 传入的 IEnumerator 封装为 Coroutine 返回，引擎会对 Corountines 存储和检查 IEnumerator 的 Current值。
+
+③枚举了 WWW ,WaitForSeconds , null 和 WaitForEndOfFrame 检查 Current值在MonoBebaviour生存周期的时间（没有WaitForFixedUpdate ，D.S.Qiu猜测是其作者成文是Unity引擎还没有提供这个实现）：
+
+	   **WWW** - after Updates happen for all game objects; check the isDone flag. If true, call the IEnumerator's MoveNext() function;
+
+	   **WaitForSeconds** - after Updates happen for all game objects; check if the time has elapsed, if it has, call MoveNext();
+
+	   **null** or some unknown value - after Updates happen for all game objects; Call MoveNext();
+
+	   **WaitForEndOfFrame** - after Render happens for all cameras; Call MoveNext().
+
+如果最后一个 yield return 的 IEnumerator 已经迭代到最后一个是，MoveNext 就会 返回 false 。这时，Unity就会将这个 IEnumerator 从 cortoutines list 中移除。
+
+	   所以很容易一个出现的误解：协程 Coroutines 并不是并行的，它和你的其他代码都运行在同一个线程中，所以才会在Update 和 Coroutine中使用 同一个值时才会变得线程安全。这就是Unity对线程安全的解决策略——直接不使用线程，最近Unity 5 将要发布说的很热，看到就有完全多线程的支持，不知道是怎么实现的，从技术的角度，还是很期待的哈。
+
+	   总结下： 在协程方法中使用 yield return 其实就是为了返回 IEnumerator对象，只有当这个对象的 MoveNext() 返回 false 时，即该 IEnumertator 的 Current 已经迭代到最后一个元素了，才会执行 yield return 后面的语句。也就是说， yield return 被会“翻译”为一个 IEnmerator 对象，要想深入了解这方面的更多细节，可以猛击⑤查看。
+
+	   根据⑤ C# in depth 的理解——C# 编译器会生成一个 IEnumerator 对象，这个对象实现的 MoveNext() 包含函数内所有 yield return 的处理，这里仅附上一个例子：
+
+	using System;  
+	using System.Collections;  
+      
+	class Test  
+	{  
+		static IEnumerator GetCounter()  
+		{  
+			for (int count = 0; count < 10; count++)  
+			{  
+				yield return count;  
+			}  
+		}  
+	}
+
+C#编译器对应生成：
+internal class Test
+{
+	// Note how this doesn't execute any of our original code
+	private static IEnumerator GetCounter()
+	{
+		return new <GetCounter>d__0(0);
+	}
+
+	// Nested type automatically created by the compiler to implement the iterator
+	[CompilerGenerated]
+	private sealed class <GetCounter>d__0 : IEnumerator<object>, IEnumerator, IDisposable
+	{
+		// Fields: there'll always be a "state" and "current", but the "count"
+		// comes from the local variable in our iterator block.
+		private int <>1__state;
+		private object <>2__current;
+		public int <count>5__1;
+
+		[DebuggerHidden]
+		public <GetCounter>d__0(int <>1__state)
+		{
+			this.<>1__state = <>1__state;
+		}
+
+		// Almost all of the real work happens here
+		private bool MoveNext()
+		{
+			switch (this.<>1__state)
+			{
+				case 0:
+					this.<>1__state = -1;
+					this.<count>5__1 = 0;
+					while (this.<count>5__1 < 10)        //这里针对循环处理
+					{
+						this.<>2__current = this.<count>5__1;
+						this.<>1__state = 1;
+						return true;
+					Label_004B:
+						this.<>1__state = -1;
+						this.<count>5__1++;
+					}
+					break;
+
+				case 1:
+					goto Label_004B;
+			}
+			return false;
+		}
+
+		[DebuggerHidden]
+		void IEnumerator.Reset()
+		{
+			throw new NotSupportedException();
+		}
+
+		void IDisposable.Dispose()
+		{
+		}
+
+		object IEnumerator<object>.Current
+		{
+			[DebuggerHidden]
+			get
+			{
+				return this.<>2__current;
+			}
+		}
+
+		object IEnumerator.Current
+		{
+			[DebuggerHidden]
+			get
+			{
+				return this.<>2__current;
+			}
+		}
+	}
+}
+
+	   从上面的C#实现可以知道：函数内有多少个 yield return 在对应的 MoveNext() 就会返回多少次 true （不包含嵌套）。另外非常重要的一点的是：同一个函数内的其他代码（不是 yield return 语句）会被移到 MoveNext 中去，也就是说，每次 MoveNext 都会顺带执行同一个函数中 yield return 之前，之后 和两个 yield return 之间的代码。
+
+	   对于Unity 引擎的 YieldInstruction 实现，其实就可以看着一个 函数体，这个函数体每帧会实现去 check MoveNext 是否返回 false 。 例如：
+
+	yield retrun new WaitForSeconds(2f);  
+
+ 上面这行代码的伪代码实现:
+
+private float elapsedTime;  
+private float time;  
+  
+private void MoveNext()  
+{  
+		elapesedTime += Time.deltaTime;  
+          
+		if(time <= elapsedTime)  
+				return false;  
+		else return true;
+}
+
+== 2）Cortoutine 扩展——Extending Coroutines: Return Values and Error Handling ==
+		不知道你们调用 StartCortoutine 的时候有没有注意到 StartCortoutine 返回了 YieldInstruction 的子类 Cortoutine 对象，这个返回除了嵌套使用 StartCortoutine 在 yiled retrun StartCortoutine 有用到，其他情况机会就没有考虑它的存在，反正D.S.Qiu是这样的，一直认为物“极”所用，所以每次调用 StartCortoutine 都很纠结，好吧，有点强迫症。
+
+	   Unity引擎讲 StartCoroutine 传入的参数 IEnumerator 封装为一个 Coroutine 对象中，而 Coroutine 对象其实也是 IEnumerator 枚举对象。yield return 的 IEnumerator 对象都存储在这个 Coroutine 中，只有当上一个yield return 的 IEnumerator 迭代完成，才会运行下一个。这个在猜测下Unity底层对Cortountine 的统一管理（也就是上面说的检查 Current 值）：Unity底层应该有一个 正在运行的 Cortoutine 的 list 然后在每帧的不同时间去 Check。
+
+		还是回归到主题，上面介绍 yield 关键字有说不允许不安全块，也就是说不能出现在 try catch 块中，就不能在 yield return 执行是进行错误检查。③利用 StartCortoutine 返回值 Cortoutine 得到了当前的 Current 值和进行错误捕获处理。
+
+先定义封装包裹返回值和错误信息的类：
+	public class Coroutine<T>{  
+	public T Value {  
+		get{  
+			if(e != null){  
+				throw e;  
+			}  
+			return returnVal;  
+		}  
+	}  
+	private T returnVal;  //当前迭代器的Current 值  
+	private Exception e;    //抛出的错误信息  
+	public Coroutine coroutine;  
+      
+	public IEnumerator InternalRoutine(IEnumerator coroutine){  
+		//先省略这部分的处理  
+		}  
+	}
+
+ InteralRoutine是对返回 Current 值和抛出的异常信息（如果有的话）：
+
+	public IEnumerator InternalRoutine(IEnumerator coroutine){  
+		while(true){  
+			try{  
+				if(!coroutine.MoveNext()){  
+					yield break;  
+				}  
+			}  
+			catch(Exception e){  
+				this.e = e;  
+				yield break;  
+			}  
+			object yielded = coroutine.Current;  
+			if(yielded != null && yielded.GetType() == typeof(T)){  
+				returnVal = (T)yielded;  
+				yield break;  
+			}  
+			else{  
+				yield return coroutine.Current;  
+			}  
+		}  
+
+ 下面为这个类扩展MonoBehavior：
+
+	public static class MonoBehaviorExt{  
+		public static Coroutine<T> StartCoroutine<T>(this MonoBehaviour obj, IEnumerator coroutine){  
+			Coroutine<T> coroutineObject = new Coroutine<T>();  
+			coroutineObject.coroutine = obj.StartCoroutine(coroutineObject.InternalRoutine(coroutine));  
+			return coroutineObject;  
+		}  
+	}
+
+ 最后给出一个 Example：
+
+	IEnumerator Start () {  
+			var routine = StartCoroutine<int>(TestNewRoutine()); //Start our new routine  
+			yield return routine.coroutine; // wait as we normally can  
+			Debug.Log(routine.Value); // print the result now that it is finished.  
+		}  
+          
+		IEnumerator TestNewRoutine(){  
+			yield return null;  
+			yield return new WaitForSeconds(2f);  
+			yield return 10;  
+					yield return 5;  
+		}  
+
+ 最后输出是10,因为Cortoutine<T> 遇到满足条件的 T 类型就 执行 yield break;就不执行 yield return 5; 这条语句了。
+
+如果将中 yield break; 语句去掉的话，最后输出的是 5 而不是10。
+
+if(yielded != null && yielded.GetType() == typeof(T)){  
+			returnVal = (T)yielded;  
+			yield break;  
+		}
+
+其实就是Unity引擎每帧去 check yield return 后面的表达式，如果满足就继续向下执行。
+
+下面在测试一个例子：连续两次调用 yield return coroutine;
+
+	 private Coroutine routine1;  
+	 void Start ()   
+	 {  
+		routine1 = StartCoroutine(TestCoroutineExtention1()); //Start our new routine    
+		StartCoroutine(TestCortoutine());  
+          
+	}  
+	IEnumerator TestCoroutineExtention1()  
+	{  
+		yield return new WaitForSeconds(1);  
+		yield return 10;  
+		Debug.Log("Run 10!");  
+		yield return new WaitForSeconds(5);  
+		yield return 5;  
+		Debug.Log("Run 5!");  
+	}  
+	IEnumerator TestCortoutine()  
+	{  
+		//wwwState = true;  
+		yield return routine1; // wait as we normally can    
+		Debug.Log(" routine1");  
+		yield return routine1; // wait as we normally can   
+		Debug.Log(" routine2");  
+	}
+
+ 测试运行会发现只会输出：
+		Run 10!
+		Run 5!
+		routine1
+
+**总结下： yield return expression 只有表达式完全执行结束才会继续执行后面的代码，连续两次执行 yield return StartCortoutine() 的返回值是不会满足的，说明 yield return 有区分开始和结束的两种状态。**
+
+=== 3）Cortoutine Locking ===
+		  虽然Cortoutine不是多线程机制，但仍会“并发”问题——同时多次调用 StartCortoutine ，当然通过Unity提供的api也能得到解决方案，每次StartCoroutine 之前先调用 StopCortoutine 方法停止，但这利用的是反射，显然效率不好。④对③的方案进行了扩展提供了 Cortoutine Locking 的支持，使用字符串（方法名）来标记同一个 Coroutine 方法，对于同一个方法如果等待时间超过 timeout 就会终止前面一个 Coroutine 方法，下面直接贴出代码：
+
+using UnityEngine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+/// <summary>
+/// Extending MonoBehaviour to add some extra functionality
+/// Exception handling from: http://twistedoakstudios.com/blog/Post83_coroutines-more-than-you-want-to-know
+/// 
+/// 2013 Tim Tregubov
+/// </summary>
+public class TTMonoBehaviour : MonoBehaviour
+{
+	private LockQueue LockedCoroutineQueue { get; set; }
+			
+	/// <summary>
+	/// Coroutine with return value AND exception handling on the return value. 
+	/// </summary>
+	public Coroutine<T> StartCoroutine<T>(IEnumerator coroutine)
+	{
+		Coroutine<T> coroutineObj = new Coroutine<T>();
+		coroutineObj.coroutine = base.StartCoroutine(coroutineObj.InternalRoutine(coroutine));
+		return coroutineObj;
+	}
+	
+	/// <summary>
+	/// Lockable coroutine. Can either wait for a previous coroutine to finish or a timeout or just bail if previous one isn't done.
+	/// Caution: the default timeout is 10 seconds. Coroutines that timeout just drop so if its essential increase this timeout.
+	/// Set waitTime to 0 for no wait
+	/// </summary>
+	public Coroutine<T> StartCoroutine<T>(IEnumerator coroutine, string lockID, float waitTime = 10f)
+	{
+		if (LockedCoroutineQueue == null) LockedCoroutineQueue = new LockQueue();
+		Coroutine<T> coroutineObj = new Coroutine<T>(lockID, waitTime, LockedCoroutineQueue);
+		coroutineObj.coroutine = base.StartCoroutine(coroutineObj.InternalRoutine(coroutine));
+		return coroutineObj;
+	}
+	
+	/// <summary>
+	/// Coroutine with return value AND exception handling AND lockable
+	/// </summary>
+	public class Coroutine<T>
+	{
+		private T returnVal;
+		private Exception e;
+		private string lockID;
+		private float waitTime;
+		
+		private LockQueue lockedCoroutines; //reference to objects lockdict
+		private bool lockable;
+		
+		public Coroutine coroutine;
+		public T Value
+		{
+			get 
+			{ 
+				if (e != null)
+				{
+					throw e;
+				}
+				return returnVal;
+			}
+		}
+		
+		public Coroutine() { lockable = false; }
+		public Coroutine(string lockID, float waitTime, LockQueue lockedCoroutines)
+		{
+			this.lockable = true;
+			this.lockID = lockID;
+			this.lockedCoroutines = lockedCoroutines;
+			this.waitTime = waitTime;
+		}
+		
+		public IEnumerator InternalRoutine(IEnumerator coroutine)
+		{
+			if (lockable && lockedCoroutines != null)
+			{		
+				if (lockedCoroutines.Contains(lockID))
+				{
+					if (waitTime == 0f)
+					{
+						//Debug.Log(this.GetType().Name + ": coroutine already running and wait not requested so exiting: " + lockID);
+						yield break;
+					}
+					else
+					{
+						//Debug.Log(this.GetType().Name + ": previous coroutine already running waiting max " + waitTime + " for my turn: " + lockID);
+						float starttime = Time.time;
+						float counter = 0f;
+						lockedCoroutines.Add(lockID, coroutine);
+						while (!lockedCoroutines.First(lockID, coroutine) && (Time.time - starttime) < waitTime)
+						{
+							yield return null;
+							counter += Time.deltaTime;
+						}
+						if (counter >= waitTime)
+						{ 
+							string error = this.GetType().Name + ": coroutine " + lockID + " bailing! due to timeout: " + counter;
+							Debug.LogError(error);
+							this.e = new Exception(error);
+							lockedCoroutines.Remove(lockID, coroutine);
+							yield break;
+						}
+					}
+				}
+				else
+				{
+					lockedCoroutines.Add(lockID, coroutine);
+				}
+			}
+			
+			while (true)
+			{
+				try 
+				{
+					if (!coroutine.MoveNext())
+					{
+						if (lockable) lockedCoroutines.Remove(lockID, coroutine);
+						yield break;
+					}
+				}
+				catch (Exception e)
+				{
+					this.e = e;
+					Debug.LogError(this.GetType().Name + ": caught Coroutine exception! " + e.Message + "\n" + e.StackTrace); 
+					if (lockable) lockedCoroutines.Remove(lockID, coroutine);
+					yield break;
+				}
+				
+				object yielded = coroutine.Current;
+				if (yielded != null && yielded.GetType() == typeof(T))
+				{
+					returnVal = (T)yielded;
+					if (lockable) lockedCoroutines.Remove(lockID, coroutine);
+					yield break;
+				}
+				else
+				{
+					yield return coroutine.Current;
+				}
+			}
+		}
+	}
+	
+	
+	/// <summary>
+	/// coroutine lock and queue
+	/// </summary>
+	public class LockQueue
+	{
+		private Dictionary<string, List<IEnumerator>> LockedCoroutines { get; set; }
+		
+		public LockQueue()
+		{
+			LockedCoroutines = new Dictionary<string, List<IEnumerator>>();
+		}
+		
+		/// <summary>
+		/// check if LockID is locked
+		/// </summary>
+		public bool Contains(string lockID)
+		{
+			return LockedCoroutines.ContainsKey(lockID);
+		}
+		
+		/// <summary>
+		/// check if given coroutine is first in the queue
+		/// </summary>
+		public bool First(string lockID, IEnumerator coroutine)
+		{
+			bool ret = false;
+			if (Contains(lockID))
+			{
+				if (LockedCoroutines[lockID].Count > 0)
+				{
+					ret = LockedCoroutines[lockID][0] == coroutine;
+				}
+			}
+			return ret;
+		}
+		
+		/// <summary>
+		/// Add the specified lockID and coroutine to the coroutine lockqueue
+		/// </summary>
+		public void Add(string lockID, IEnumerator coroutine)
+		{
+			if (!LockedCoroutines.ContainsKey(lockID))
+			{
+				LockedCoroutines.Add(lockID, new List<IEnumerator>());
+			}
+			
+			if (!LockedCoroutines[lockID].Contains(coroutine))
+			{
+				LockedCoroutines[lockID].Add(coroutine);
+			}
+		}
+		
+		/// <summary>
+		/// Remove the specified coroutine and queue if empty
+		/// </summary>
+		public bool Remove(string lockID, IEnumerator coroutine)
+		{
+			bool ret = false;
+			if (LockedCoroutines.ContainsKey(lockID))
+			{
+				if (LockedCoroutines[lockID].Contains(coroutine))
+				{
+					ret = LockedCoroutines[lockID].Remove(coroutine);
+				}
+				
+				if (LockedCoroutines[lockID].Count == 0)
+				{
+					ret = LockedCoroutines.Remove(lockID);
+				}
+			}
+			return ret;
+		}	
+	}
+}
+
+小结：
+	   本文主要是对 Unity StartCoroutine 进行了理解，从C# 的yileld 和 IEnumerator 到 Unity 的 StartCoroutine，最后并对Cortoutine 进行了扩展，虽然感觉不是很实用（用到的情况非常至少），但还是有利于对Coroutine 的理解和思考。
+
+
+
+
+
+
+
+
+
+
+

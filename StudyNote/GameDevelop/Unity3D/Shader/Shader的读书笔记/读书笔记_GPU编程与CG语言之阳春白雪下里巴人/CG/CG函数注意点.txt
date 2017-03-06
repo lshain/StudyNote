@@ -1,0 +1,30 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-07-01T13:36:05+08:00
+
+====== CG函数注意点 ======
+Created 星期五 01 七月 2016
+
+=== 数组形参 ===
+在Cg 语言中不存在指针机制（图形硬件不支持），数组作为函数形参，传递的是数组的完整拷贝。
+
+数组类型变量作为函数形参，可以是一维的也可以是多维的，并且不必声明数组长度，即Unsized Array。例如：
+float myFunc( float vals[])
+{
+	float sum = 0.0;
+	for(int i = 0; i< vals.length; i++)
+	{
+		sum += vals[i];
+	}
+	return sum;
+}
+
+请注意：数组形参不必指定长度。如果指定了函数中形参数组的长度，那么在调用该函数时实参数组的长度和形参数组的长度必须保持一致，如果没有保持一致，编译时会出现错误提示信息：error C1102: incompatible type for parameter…。
+
+=== 函数重载 ===
+Cg 语言支持函数重载（Functon Overlaoding），其方式和C++基本一致，通过形参列表的个数和类型来进行函数区分。例如：
+bool function(float a, float b) {return ( a == b);}
+bool function(boo a, bool b) {return ( a == b);}
+
+Cg 语言标准函数库中绝大部分函数都被重载过。
+

@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T10:49:41+08:00
+
+====== 限制RectTransform下某个属性不可被修改 ======
+Created 星期一 09 一月 2017
+
+如图所示，让RectTransform下某些属性不可以在Inspector面板上修改。
+{{./1.png}}
+
+DrivenTransformProperties这个结构体你可以|符号 设置你希望禁掉的属性。
+
+	static   DrivenRectTransformTracker  tracker = new DrivenRectTransformTracker();
+	[MenuItem ("Test/Limit")]
+	static void Check ()
+	{
+		tracker.Clear();
+		tracker.Add(Selection.activeGameObject,Selection.activeGameObject.GetComponent<RectTransform>(),DrivenTransformProperties.Pivot | DrivenTransformProperties.Anchors);
+	}
+

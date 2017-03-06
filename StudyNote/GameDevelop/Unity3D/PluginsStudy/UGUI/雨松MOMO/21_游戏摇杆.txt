@@ -1,0 +1,45 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T23:04:07+08:00
+
+====== 21 游戏摇杆 ======
+Created 星期二 05 四月 2016
+
+最近在做Unity基于UGUI的摇杆，发现了一种非常简单并且巧妙的方法，原文在这里， 不过要翻墙！！http://godstamps.blogspot.tw/2015/07/unity-ugui-scrollrect.html
+
+它的原理就是利用ScrollRect来限制摇块的摇动区域，但是ScrollRect是矩形的，我们的摇杆的摇动区域应该是个圆形的才对。所以顺着这个思路我简单的改了改。
+
+如下图所示， ScrollCircle就是摇杆的背景， 里面的Image就是摇块。
+
+{{./1.png}}
+
+代码
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+ 
+public class ScrollCircle :ScrollRect 
+{
+	protected float mRadius;
+	void Start()
+	{
+		//计算摇杆块的半径
+		mRadius = (transform as RectTransform).sizeDelta.x * 0.5f;
+	}
+ 
+	public override void OnDrag (UnityEngine.EventSystems.PointerEventData eventData)
+	{
+		base.OnDrag (eventData);
+		var contentPostion = this.content.anchoredPosition;
+		if (contentPostion.magnitude > mRadius){
+			contentPostion = contentPostion.normalized * mRadius ;
+			SetContentAnchoredPosition(contentPostion);
+		}
+	}
+}
+
+{{./2.png}}
+
+几行代码就出来了。然后就是摇杆的事件， 可以用UGUI的源生事件 IEndDragHandler , IBeginDragHandler
+
+怎么样？ 用UGUI做摇杆简单吧？

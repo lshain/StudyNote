@@ -1,0 +1,33 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T22:59:00+08:00
+
+====== 适配器模式 ======
+Created 星期一 15 八月 2016
+
+适配器模式：将一个类的接口转换成客户希望的另外一个接口。Adapter模式使得原本由于接口不兼容而不能一起工作的那个类可以一起工作。以下是例子：
+
+//定义接口
+public interface ITarget {
+	public void run();
+	public void fly(); 
+}
+
+//其中的方法必须与接口中的其中一个方法的方法名相同 
+public class Sources {
+	public void run(){
+		System.out.println("run");
+	}
+}
+
+//继承与实现，由于继承的类中有个方法的名字与接口相同，所以只要重写一个方法即可 
+public class Adapter extends Sources implements ITarget{
+	public static void main(String []a){
+		new Adapter().fly();
+		new Adapter().run();
+	}
+
+	public void fly() {
+		System.out.println("fly");
+	}
+}

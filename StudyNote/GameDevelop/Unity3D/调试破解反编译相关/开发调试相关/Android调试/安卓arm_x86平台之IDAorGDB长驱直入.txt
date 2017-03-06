@@ -1,0 +1,58 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-16T13:21:15+08:00
+
+====== 安卓arm x86平台之IDAorGDB长驱直入 ======
+Created 星期一 16 一月 2017
+
+转自：http://bbs.pediy.com/showthread.php?t=206654
+
+===== 正题一：IDA+gdbserver调试x86程序 =====
+操作环境：android_ndk+IDA6.8 +豌豆荚+有root权限x86手机
+
+步骤
+1.usb插上手机保证豌豆荚能够识别，手机首次连接电脑会安装手机驱动
+2.安装待调试程序hello-jni_all.apk到手机adb install -r xxx/hello-jni_all.apk
+3.cmd运行后推送ndk/prebuilt对应的arm/x86 gdbserver到手机 adb push gdbserver /data/local/tmp
+4.修改可执行权限adb shell进入操作模式 su获取root权限这时$会变成#，没有root权限就不要调试了 而后进入/data/local/tmp目录chmod 755 gdbserver
+5.向手机转发调试端口adb forward tcp:23946 tcp:23946
+
+{{./1.png}}
+
+6.启动程序activity以备调试am start -D -n am start -D -n com.example.hellojni/.HelloJni
+7.查看进程pid ps|grep hello为6060
+8.启动gdbserver附加目标程序./gdbserver :23946 --attach 6060
+
+{{./2.png}}
+
+9.启动IDA附加进程选择remote gdb debugger 端口保持一致为23946确定之后弹出choose process窗口选择默认项0
+
+{{./3.png}}
+
+10.然后让程序飞起来jdb -connect com.sun.jdi.SocketAttach:hostname=127.0.0.1,port=8600
+{{./4.png}}
+之后手机就进入了被调试状态，注意一下如果IDA附加不成功，可以停止gdbserver，重启启动目标程序记下pid，再次启动gdbserver试一下，每次重启程序时gdbserver也要跟着改attach的进程pid。进入被调试状态之后会发现，没有代码空间即便你用IDA打开的程序文件同样是断不到的，因为gdb附加程序之后进程空间是全系统空间0~0xffffffff，需要确认目标程序地址后下断。确认地址可以通过用IDA打开程序文件记下偏移地址，然后加上模块加载基地址就是真实的手机中程序地址了。
+
+具体来看图
+11.比如ibhello-jni.so目标位置是Java_com_example_hellojni_HelloJni_Test1函数偏移0x05D0
+{{./5.png}}
+
+12.查看模块加载基地址cat /proc/7009/maps |grep hello 一共三条注意是带x可执行权限的f2f27000;加上偏移就是f2f275d0
+{{./6.png}}
+
+13.回到IDA暂停程序后快捷键G跳转到f2f275d0地址下f2断点，F5运行程序,在手机中点击按钮，断点触发；之后就跟踪就是了
+{{./7.png}}
+
+===== 正题二：gdb+gdbserver调试x86程序 =====
+操作环境：android_ndk+gdb+豌豆荚+arm/x86有root权限手机若干
+
+步骤1-11同上；注意这里不需要IDA可以忽略相关步骤
+打开gdb 连接gdbserver调试器target remote localhost:23946 依次打开汇编指令回显set disassemble-next on 打开单步调试set step-mode on    
+连上之后gdbserver会显示Remote debugging from host 127.0.0.1
+{{./8.png}}
+
+13.gdb执行c命令先让程序跑起来；这时候手机程序就运行起来了然后同步骤12查看模块基地址这里是0xf312f000+0x5d0=0xf312f5d0
+14. Ctrl+c暂停程序后Gdb下断点使用b *0xf312f5d0(！！记住星号是必须的否则断点下不到)；不放心可以用display看一下指令 display /10i 0xf312f5d0
+{{./9.png}}
+
+15.单步执行n命令操起来了~ 执行的时候如果回显结果太烦人，可以用delete display去掉

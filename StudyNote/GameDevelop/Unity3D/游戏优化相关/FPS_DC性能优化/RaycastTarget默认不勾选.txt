@@ -1,0 +1,33 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T10:44:09+08:00
+
+====== RaycastTarget默认不勾选 ======
+Created 星期一 09 一月 2017
+
+转自：http://www.xuanyusong.com/archives/4006
+
+无意间发现了一个小技巧。如下图所示，可以发现UGUI的Image组件的RaycastTarget勾选以后会消耗一些效率，为了节省效率就不要勾选它了，不仅Image组件Text组件也有这样的问题。 一般UI里也就是按钮才需要接收响应事件，那么大部分image和text是是不需要开RaycastTarget的。 
+
+{{./1.png}}
+
+  但是问题就来了，Unity默认在hierarchy窗口Create->UI->Image 、Text的时候就会自动帮我们勾选上RaycastTarget， 一个复杂点的界面至少也300+个Image和Text， 总不能一个个取消吧。 所以我们可以重写Create->UI->Image的事件。 
+
+{{./2.png}}
+
+	[MenuItem("GameObject/UI/Image")]
+	static void CreatImage()
+	{
+		if(Selection.activeTransform)
+		{
+			if(Selection.activeTransform.GetComponentInParent<Canvas>())
+			{
+				GameObject go = new GameObject("image",typeof(Image));
+				go.GetComponent<Image>().raycastTarget = false;
+				go.transform.SetParent(Selection.activeTransform);
+			}
+		}
+	}
+
+ 这样创建出来的Image就不带 RaycastTarget,Text组件原理同上。 Unity版本5.3.3
+

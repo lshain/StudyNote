@@ -1,0 +1,54 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-10T21:02:29+08:00
+
+====== Import ======
+Created 星期日 10 一月 2016
+
+import 与 require 功能相同，但具有一定程度的自动化特性。
+
+import支持相对路径
+
+function Import(moduleName)
+	local moduleFullName = moduleName
+
+	if string.byte(moduleName, 1) == 46 then -- .
+		local fullPathParts = tostring(debug.traceback())
+
+		local function getLastIndex(str, a, b)
+			local len = string.len(str)
+			local pos = len
+			local ia = 0
+			local ib = 0
+			while pos > 0 do
+				if string.byte(str, pos) == a and ia == 0 then
+					ia = pos
+				end
+
+				if string.byte(str, pos) == b and ib == 0 then
+					ib = pos
+				end
+
+				if ia > 0 and ib > 0 then
+					if ia > ib then
+						ia = 0
+					else
+						break
+					end
+				end
+
+				pos = pos - 1
+			end
+
+			return ia + 1, ib
+		end
+
+		fullPathParts = string.sub(fullPathParts, getLastIndex(fullPathParts, string.byte("\"", 1), string.byte("/", 1)))
+
+		moduleFullName = fullPathParts .. string.sub(moduleName, 2)
+	end
+
+	print("moduleFullName: " .. tostring(moduleFullName))
+
+	return require(moduleFullName)
+end

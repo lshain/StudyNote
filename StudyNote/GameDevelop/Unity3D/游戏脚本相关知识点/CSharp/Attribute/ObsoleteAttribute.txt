@@ -1,0 +1,8 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-12T10:52:16+08:00
+
+====== ObsoleteAttribute ======
+Created 星期五 12 二月 2016
+
+该属性将代码标记为过时。字符串 "Will be removed in next version" 被传递到该属性。当调用该属性所描述的代码时，该属性将产生编译器警告以显示所传递的字符串。

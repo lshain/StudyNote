@@ -1,0 +1,9 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-12T16:26:44+08:00
+
+====== 3 Animation State Machines ======
+Created 星期二 12 四月 2016
+
+===== Animation State Machines =====
+It is common for a character or other animated Game Object to have several different animations that correspond to different actions it can perform in the game. For example, a character may breathe or sway slightly while idle, walk when commanded to and raise its arms in panic as it falls from a platform. A door may have animations for opening, closing, getting jammed, and being broken open. Mecanim uses a visual layout system similar to a flow-chart, to represent a state machine to enable you to control and sequence the animation clips that you want to use on your character or object. This section gives further details about Mecanim’s state machines and explains how to use them.

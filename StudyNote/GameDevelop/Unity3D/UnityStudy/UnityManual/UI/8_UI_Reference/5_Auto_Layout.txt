@@ -1,0 +1,16 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-10T16:05:35+08:00
+
+====== 5 Auto Layout ======
+Created 星期日 10 四月 2016
+
+===== Auto Layout =====
+
+The auto layout system provides ways to place elements in nested layout groups such as horizontal groups, vertical groups, or grids. It also allows elements to automatically be sized according to the contained content.
+
+* Content Size Fitter
+* Layout Element
+* Horizontal Layout Group
+* Vertical Layout Group
+* Grid Layout Group

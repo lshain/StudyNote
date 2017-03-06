@@ -1,0 +1,19 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-08T14:59:50+08:00
+
+====== 2 Outline ======
+Created 星期五 08 四月 2016
+
+===== Outline =====
+The Outline component adds a simple outline effect to graphic components such as Text or Image. It must be on the same GameObject as the graphic component.
+
+{{./1.png}}{{./2.png}}
+{{./3.png}}
+
+===== Properties =====
+Property: 					Function:
+Effect Color 				The color of the outline.
+Effect Distance 				The distance of the outline effect horizontally and vertically.
+Use Graphic Alpha 			Multiplies the color of the graphic onto the color of the effect.
+

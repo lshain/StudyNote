@@ -1,0 +1,96 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-10-28T11:19:59+08:00
+
+====== 最长递增子序列 ======
+Created 星期五 28 十月 2016
+
+ 最长递增子序列问题：在一列数中寻找一些数，这些数满足：任意两个数a[i]和a[j]，若i<j，必有a[i]<a[j]，这样最长的子序列称为最长递增子序列。
+ 设dp[i]表示以i为结尾的最长递增子序列的长度，则状态转移方程为：
+
+ dp[i] = max{dp[j]+1}, 1<=j<i,a[j]<a[i].
+
+这样简单的复杂度为O(n^2)，其实还有更好的方法。
+
+考虑两个数a[x]和a[y]，x<y且a[x]<a[y],且dp[x]=dp[y]，当a[t]要选择时，到底取哪一个构成最优的呢？显然选取a[x]更有潜力，因为可能存在a[x]<a[z]<a[y]，这样a[t]可以获得更优的值。在这里给我们一个启示，当dp[t]一样时，尽量选择更小的a[x].
+
+按dp[t]=k来分类，只需保留dp[t]=k的所有a[t]中的最小值，设d[k]记录这个值，d[k]=min{a[t],dp[t]=k}。
+
+这时注意到d的两个特点（重要）：
+1. d[k]在计算过程中单调不升；           
+2. d数组是有序的，d[1]<d[2]<..d[n]。
+
+	利用这两个性质，可以很方便的求解：
+
+1. 设当前已求出的最长上升子序列的长度为len（初始时为1），每次读入一个新元素x：
+2. 若x>d[len]，则直接加入到d的末尾，且len++；（利用性质2）
+   否则，在d中二分查找，找到第一个比x小的数d[k]，并d[k+1]=x，在这里x<=d[k+1]一定成立（性质1,2）。
+
+
+
+	/** 
+	最长递增子序列O(nlogn)算法： 
+	状态转移方程：f[i] = max{f[i],f[j]+1},1<=j<i,a[j]<a[i]. 
+	分析：加入x<y,f[x]>=f[y],则x相对于y更有潜力。 
+	首先根据f[]值分类，记录满足f[t]=k的最小的值a[t],记d[k]=min{a[t]},f[t]=k. 
+		1.发现d[k]在计算过程中单调不上升 
+		2.d[1]<d[2]<...<d[k] (反证) 1 2 3 8 4 7 
+	解法： 
+	1. 设当前最长递增子序列为len,考虑元素a[i]; 
+	2. 若d[len]<a[i],则len++，并将d[len]=a[i]; 
+	   否则,在d[0-len]中二分查找,找到第一个比它小的元素d[k],并d[k+1]=a[i].() 
+	*/  
+	#include <iostream>  
+	#include <cstdio>  
+	#include <cstring>  
+	using namespace std;  
+	const int N = 41000;  
+	int a[N];       //a[i] 原始数据  
+	int d[N];       //d[i] 长度为i的递增子序列的最小值  
+      
+	int BinSearch(int key, int* d, int low, int high)  
+	{  
+		while(low<=high)  
+		{  
+			int mid = (low+high)>>1;  
+			if(key>d[mid] && key<=d[mid+1])  
+				return mid;  
+			else if(key>d[mid])  
+				low = mid+1;  
+			else  
+				high = mid-1;  
+		}  
+		return 0;  
+	}  
+      
+	int LIS(int* a, int n, int* d)  
+	{  
+		int i,j;  
+		d[1] = a[1];  
+		int len = 1;        //递增子序列长度  
+		for(i = 2; i <= n; i++)  
+		{  
+			if(d[len]<a[i])  
+				j = ++len;  
+			else  
+				j = BinSearch(a[i],d,1,len) + 1;  
+			d[j] = a[i];  
+		}  
+		return len;  
+	}  
+      
+	int main()  
+	{  
+		int t;  
+		int p;  
+		scanf("%d",&t);  
+		while(t--)  
+		{  
+			scanf("%d",&p);  
+			for(int i = 1; i <= p; i++)  
+				scanf("%d",&a[i]);  
+			printf("%d\n",LIS(a,p,d));  
+		}  
+		return 0;  
+	}  
+

@@ -1,0 +1,59 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-16T00:05:27+08:00
+
+====== 策略模式 ======
+Created 星期二 16 八月 2016
+
+策略模式：定义一系列的算法,把它们一个个封装起来,并且使它们可相互替换。本模式使得算法可独立于使用它的客户而变化。以下是例子：
+
+public abstract class Strategy {
+	public abstract void method();
+}
+
+public class StrategyImplA extends Strategy{  
+	public void method() {
+		System.out.println("这是第一个实现"); 
+	} 
+}
+
+public class StrategyImplB extends Strategy{  
+	public void method() {
+		System.out.println("这是第二个实现"); 
+	} 
+}
+
+public class StrategyImplC extends Strategy{
+	public void method() {
+		System.out.println("这是第三个实现");
+	}
+}
+
+public class Context {  
+	Strategy stra;
+
+	public Context(Strategy strategy){
+		this.stra = strategy; 
+	}
+
+	public void doMethod(){
+		stra.method(); 
+	} 
+}
+
+//测试类
+public class Test {  
+	public static void main(String[] args) {
+		Context ctx = new Context(new StrategyImplA());
+
+		ctx.doMethod();
+
+		ctx = new Context(new StrategyImplB());
+
+		ctx.doMethod();
+
+		ctx = new Context(new StrategyImplC());
+
+		ctx.doMethod(); 
+	} 
+}

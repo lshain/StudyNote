@@ -1,0 +1,229 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-07-10T15:42:09+08:00
+
+====== 5.3 新版AssetBundle使用方案及策略 ======
+Created 星期日 10 七月 2016
+
+===== 1.概览 =====
+Unity3D 5.0版本之后的AssetBundle机制和之前的4.x版本已经发生了很大的变化，一些曾经常用的流程已经不再使用，甚至一些老的API已经被新的API所取代。
+因此，本文的主要内容就是分析5.X版本的AssetBundle机制（包括创建资源包、压缩资源包、加载资源包和从资源包中加载/卸载资源等几个方面）及其关键的API使用方式并总结一些对项目的建议（例如根据不同的情景，选择不同的包体加载方案等等）。
+
+===== 2.AssetBundle系统的新功能 =====
+
+本小节包括：
+* AssetBundle系统的新功能
+* 新的AssetBundle系统的优势
+
+=== 2.1.AssetBundle系统的新功能 ===
+在新的AssetBundle系统中，出现了以下的新功能：
+
+* 通过Editor中的UI即可方便的为AssetBundle标记资源。而且一个资源和对应的AssetBundle的映射将会在资源数据库（AssetDatabase）中被创建。
+{{./1.jpg}}
+
+在箭头处即可指定该资源所述的AssetBundle，第一个选项为AssetBundle的名字，而后一个选项则是为AssetBundle创建变体，例如一些素材需要区分为高清或普通存放在不同的AssetBundle中，那么第二选项就可以以hd和normal来区分。
+
+* 提供了新的API用来设置资源所属的AssetBundle：
+
+* 设置AssetImporter.assetBundleName的值，即可为该资源指定它所属的AssetBundle。上文中在UI中设置的AssetBundle的名字便是为该值赋值，在资源有了assetBundleName之后，实际上它的信息就已经存在于AssetDataBase里面了。
+
+* 新版本中，创建AssetBundle文件的API变得十分简单了：
+  BuildPipeline.BuildAssetBundles()：我们只需要提供一个输出AssetBundle的地址即可。引擎将自动根据资源的assetbundleName属性（即在上文中UI中设置的值）批量打包，自动建立Bundle以及资源之间的依赖关系。
+
+* 新增了一些打包策略/选项，且一些4.x中的旧有策略被默认开启。
+  CompleteAssets ，用于保证资源的完备性，默认开启；
+  CollectDependencies，用于收集资源的依赖项，默认开启；
+  DeterministicAssetBundle，用于为资源维护固定ID，默认开启；
+  ForceRebuildAssetBundle，用于强制重打所有AssetBundle文件，新增；
+  IgnoreTypeTreeChanges，用于判断AssetBundle更新时，是否忽略TypeTree的变化，新增；
+  AppendHashToAssetBundleName，用于将Hash值添加在AssetBundle文件名之后，开启这个选项可以直接通过文件名来判断哪些Bundle的内容进行了更新（4.x下普遍需要通过比较二进制等方法来判断，但在某些情况下即使内容不变重新打包，Bundle的二进制也会变化），新增。
+  ChunkBasedCompression，用于使用LZ4格式进行压缩，5.3新增。
+
+* Manifest文件。在4.x版本中，我们通常需要自行维护配置文件，以记录AssetBundle之间的依赖关系，并供运行时使用。而在5.x版本中，使用Manifest文件可以免去4.x版本中的这一过程。而Manifest文件分为两种：
+  单个bundle的Manifest文件，一旦一个新的AssetBundle文件被创建导出，便会对应生成一个.manifest文件，其中包含了校验、依赖文件等信息。所以可以用来做增量更新。
+  实际上在打包的时候，在输出的bundle所在的文件夹内还会生成一个总的manifest文件，叫做[文件夹名].manifest。它包含了该文件夹内所有的bundle的信息，以及它们之间互相依赖的信息。所以在我们加载bundle的时候，需要先把总的manifest文件加载进来，以确认各个bundle之间的依赖关系。
+
+* 一些在运行时动态加载AssetBundle的API被新的API代替。
+4.x版本中的AssetBundle.CreateFromFile方法，在5.x版本中变成了AssetBundle.LoadFromFile方法。
+4.x版本中的AssetBundle.CreateFromMemory方法，在5.x版本中变成了LoadFromMemoryAsync方法。
+4.x版本中的AssetBundle.CreateFromMemoryImmediate方法，在5.x版本中变成了LoadFromMemory方法。
+
+=== 2.2.新的AssetBundle系统的优势 ===
+由于引擎提供的这些新功能，我们就不再需要像4.x时代那么复杂的用来打包的脚本了。
+同时，资源之间的互相依赖关系不再需要开发者手动维护了，曾经由于不当使用PushAssetDependencies/PopAssetDependencies而可能会造成依赖出现的问题，现在Unity3D已经为我们解决了。
+
+而且由于引入了清单文件manifest，因此我们可以实现增量更新，即只需要更新有变化的部分，而没有变化的则不必更新。
+
+举一个例子：
+假设我们有一个cube，它的material有一个材质，我们分别将cube和material打包成cubeBundle和materialBundle，之后我们修改material上的材质。在过去，我们需要分别重新为cube和material打包，而现在只需要对material重新打包即可，cube不受影响。
+
+===== 3.AssetBundle文件的创建 =====
+
+本小节包括：
+* 旧有创建AssetBundle文件的API
+* 新的创建AssetBundle文件的API
+* 针对项目的建议
+
+=== 3.1.旧有创建AssetBundle文件的API ===
+在4.x时代，最常用的AssetBundle打包方法主要包括以下两个：
+BuildPipeline.BuildAssetBundle 						对除Scene以外的资源打包，支持单个和多个资源，需要在方法的参数中指明需要被打入AssetBundle的资源；
+BuildPipeline.BuildStreamedSceneAssetBundle			对Scene文件打包，也支持单个和多个。
+
+且在4.x时代，打包还需要注意资源之间互相依赖的问题。为了避免资源冗余，同时提高资源加载和卸载的灵活性，因此依赖性打包的重要性不言而喻。老版本中，我们可以使用以下两个方法来实现这种依赖性：
+BuildPipeline.PushAssetDependencies
+BuildPipeline.PopAssetDependencies
+
+这种机制并不难理解，简单的说PushAssetDependencies是将资源进栈，PopAssetDependencies是让资源出栈，每打一个包，引擎都会检查当前栈中所有的依赖项，查看是否有相同资源已经在栈中。如有，则与其相关的AssetBundle建立依赖关系。
+
+=== 3.2.新的创建AssetBundle文件的API ===
+在新版本中，Unity3D为我们提供了唯一的API用来打AssetBundle包。即：
+BuildPipeline.BuildAssetBundles
+
+在脚本中调用BuildPipeline.BuildAssetBundles，U3D将自动根据资源的assetbundleName属性批量打包，自动建立Bundle和资源之间的依赖关系。
+
+在资源的Inpector界面最下方可设置该资源的assetbundleName，每个assetbundleName对应一个Bundle，即assetbundleName相同的资源会打在一个Bundle中。
+
+如果所依赖的资源设置了不同的assetbundleName，则会自动与之建立依赖关系，避免出现冗余，从而减小Bundle包的大小。
+
+当然，除了可以指定assetbundleName，我们还可以在Inpector中设置另一个名字，即variant。在打包时，variant会作为后缀添加在assetbundleName之后。相同assetbundleName，不同variant的Bundle是可以相互替换的。
+
+{{./2.jpg}}
+
+设置好之后，我们只需要创建一个新的脚本，通过编辑器拓展调用BuildPipeline.BuildAssetBundles方法即可：
+
+
+using UnityEditor;public class CreateAssetBundles{  
+	[MenuItem ("Assets/Build AssetBundles")]  
+	static void BuildAllAssetBundles ()    {      
+		BuildPipeline.BuildAssetBundles ("Assets/AssetBundles");    
+	}
+}
+
+BuildPipeline.BuildAssetBundles方法的参数为bundle的导出目录。当然它有很多重载的版本，可以提供额外的参数来定制符合自己需求的AssetBundle。
+
+=== 3.3.针对项目的建议 ===
+虽然新的AssetBundle简化了打包和处理资源依赖的过程，但是却引入了一个新的复杂度，即需要设置资源的assetbundleName以实现打包的功能。
+
+因此我们可能需要做的是：
+
+1. 提供脚本批量对资源设置assetbundleName
+2. 规划好assetBundle所对应的资源类型，规划好assetBundle的数量
+
+===== 4.AssetBundle的压缩 =====
+
+本小节包括：
+* AssetBundle的压缩类型
+* 针对项目的建议
+
+=== 4.1.AssetBundle的压缩类型 ===
+Unity3D引擎为我们提供了三种压缩策略来处理AssetBundle的压缩，即：
+* LZMA格式
+* LZ4格式
+* 不压缩
+
+LZMA格式：
+在默认情况下，打包生成的AssetBundle都会被压缩。在U3D中，AssetBundle的标准压缩格式便是LZMA（LZMA是一种序列化流文件），因此在默认情况下，打出的AssetBundle包处于LZMA格式的压缩状态，在使用AssetBundle前需要先解压缩。
+使用LZMA格式压缩的AssetBundle的包体积最小（高压缩比），但是相应的会增加解压缩时的时间。
+
+LZ4格式：
+Unity 5.3之后的版本增加了LZ4格式压缩，由于LZ4的压缩比一般，因此经过压缩后的AssetBundle包体的体积较大（该算法基于chunk）。但是，使用LZ4格式的好处在于解压缩的时间相对要短。
+若要使用LZ4格式压缩，只需要在打包的时候开启BuildAssetBundleOptions.ChunkBasedCompression即可。
+BuildPipeline.BuildAssetBundles(Application.streamingAssetsPath, BuildAssetBundleOptions.ChunkBasedCompression);
+
+不压缩：
+当然，我们也可以不对AssetBundle进行压缩。没有经过压缩的包体积最大，但是访问速度最快。
+若要使用不压缩的策略，只需要在打包的时候开启BuildAssetBundleOptions.UncompressedAssetBundle即可。
+BuildPipeline.BuildAssetBundles(Application.streamingAssetsPath,  BuildAssetBundleOptions.UncompressedAssetBundle);
+
+=== 4.2.针对项目的建议 ===
+AssetBundle的压缩策略不仅仅和包体的大小、包体的解压速度相关，而且还会关系到AssetBundle在运行时动态加载的API使用。因此，针对不同类型资源的AssetBundle要指定出符合其使用特点的压缩策略。
+
+===== 5.AssetBundle的加载和卸载 =====
+
+本小节主要包括：
+* 新版API
+* 动态加载方式对比
+* 针对项目的建议
+
+=== 5.1 新版API ===
+在5.x版本中的新AssetBundle系统中，旧有的一些动态加载API已经被新的API所取代，具体内容如下：
+* 4.x版本中的AssetBundle.CreateFromFile方法，在5.x版本中变成了AssetBundle.LoadFromFile方法。
+* 4.x版本中的AssetBundle.CreateFromMemory方法，在5.x版本中变成了LoadFromMemoryAsync方法。
+* 4.x版本中的AssetBundle.CreateFromMemoryImmediate方法，在5.x版本中变成了LoadFromMemory方法。
+
+因此，本小节之后的内容将使用新版API。
+
+=== 5.2.动态加载方式对比 ===
+使用AssetBundle动态加载资源首先要获取AssetBundle对象，第二步才是从AssetBundle中加载目标资源。因此本小节将主要关注如何在运行时获取AssetBundle的对象，关于如何从AssetBundle中加载资源将在下一小节中分析。
+
+要在运行时加载AssetBundle对象主要可以分为两大类途径：
+* 先获取WWW对象，再通过WWW.assetBundle获取AssetBundle对象
+* 直接获取AssetBundle
+
+下面我们就具体分析一下这两种途径：
+
+**先获取WWW对象，再通过WWW.assetBundle加载AssetBundle对象：**
+在先获取WWW对象，在获取AssetBundle的这种方式中，我们可以使用以下两个API来实现这个功能。
+public WWW(string url)，直接调用WWW类的构造函数，目标AssetBundle所在的路径作为其参数，构造WWW对象的过程中会加载Bundle文件并返回一个WWW对象，完成后会在内存中创建较大的WebStream（解压后的内容，通常为原Bundle文件的4~5倍大小，纹理资源比例可能更大），因此后续的AssetBundle.LoadAsset可以直接在内存中进行。
+
+public static WWW LoadFromCacheOrDownload(string url, int version, uint crc = 0)，WWW类的一个静态方法，调用该方法同样会加载Bundle文件同时返回一个WWW对象，和上一个直接调用WWW的构造函数的区别在于该方法会将解压形式的Bundle内容存入磁盘中作为缓存（如果该Bundle已在缓存中，则省去这一步），完成后只会在内存中创建较小的SerializedFile，而后续的AssetBundle.LoadAsset需要通过IO从磁盘中的缓存获取。
+
+**直接加载AssetBundle对象：**
+在4.x时代，我们可以通过CreateFromFile或CreateFromMemory方法将磁盘上的文件或内存中的流构造成我们需要的AssetBundle对象。但是在5.x版本中，曾经的这两个方法已经被新的LoadFromFile、LoadFromMemory方法所代替（这两个方法还有异步的版本），且机制上也有了一些区别。
+
+public static AssetBundle LoadFromFile(string path, uint crc = 0)：新的从文件创建加载AssetBundle方法和4.x中的CreateFromFile方法在机制上有了一些分别，旧的CreateFromFile必须使用未压缩的Bundle文件才能在运行时动态创建AssetBundle对象。而新的LoadFromFile方法则没有这个要求，它支持上一节中提到的几个压缩格式，针对LZ压缩格式和未压缩的磁盘上的bundle文件，该方法会直接加载。针对使用默认的LZMA压缩格式压缩的bundle文件，该方法会在幕后先将bundle文件解压后再加载。这是最快的加载AssetBundle的方式。该方法是同步版本，还有异步版本：LoadFromFileAsync。
+
+public static AssetBundle LoadFromMemory(byte[] binary, uint crc = 0)：从内存中获取Bundle的二进制数据，同步地创建AssetBundle对象。该方法一般用在经过加密的数据上，经过加密的流数据经过解密之后我们可以调用该方法动态的创建AssetBundle对象。该方法是同步版本，还有异步版本：LoadFromMemoryAsync。
+
+以上便是在运行时动态加载AssetBundle对象的方法。下面，我们再从加载过程中内存消耗的角度来对比一下这几种加载AssetBundle对象的方法，下表是Unity3D官方的一个中文版总结。
+{{./3.jpg}}
+
+注：当使用WWW来下载一个bundle时，WebRequest还会有一个8*64KB的缓存区用来存储来自socket的数据。
+
+=== 5.3.针对项目的建议 ===
+由于以上分析的几种加载手段各有各的使用情景和特点。因此建议在我们的项目中按照以下情景使用这些方法：
+
+**随游戏一同发布的AssetBundle（一般位于StreamingAssets文件夹中）：**
+在打AssetBundle包时，使用LZ4压缩格式进行打包（开启BuildAssetBundleOptions.ChunkBasedCompression即可）。
+在运行时需要加载AssetBundle对象时，使用LoadFromFile方法进行加载。
+这样做的好处是：即可以将AssetBundle文件压缩，又可以兼顾加载速度，且节约内存。
+
+**作为更新包，需要从服务端下载的AssetBundle：**
+在打AssetBundle包时，使用默认的LZMA格式压缩。
+使用WWW.LoadFromCacheOrDownload方法下载并缓存AssetBundle包文件。
+这样做的好处是：获得了最大的压缩率，在下载过程中可以减少数据传输量。同时，在本地磁盘创建缓存之后，又可以兼顾之后的加载速度，且节约内存。
+
+**我们自己进行加密的AssetBundle：**
+在打AssetBundle包时，使用LZ4压缩格式进行打包（开启BuildAssetBundleOptions.ChunkBasedCompression即可）。
+在运行时需要加载AssetBundle对象时，使用LoadFromMemory方法进行加载。（这也是从内存中使用流数据加载AssetBundle对象的仅有的使用场景。）
+
+**我们自己压缩的AssetBundle：**
+我们自己也可以使用第三方库或工具对生成的AssetBundle包文件进行压缩，如果需要这样做，则我们最好不要再使用Unity3D对AssetBundle进行压缩，因此在打包时选择开启BuildAssetBundleOptions.UncompressedAssetBundle。
+在运行时需要加载AssetBundle对象时，使用LoadFromFileAsync方法进行异步加载。
+
+===== 6.资源的加载和卸载 =====
+
+本小节包括：
+* 从AssetBundle对象中加载资源
+* 资源的卸载
+
+=== 6.1.从AssetBundle对象中加载资源 ===
+
+新旧版的加载和卸载资源的API名称发生了一些变化，但是机制变化不大。
+在旧有的4.X版本中，从AssetBundle对象中加载资源所使用的API主要包括以下几个：
+* Load：从资源包中加载指定的资源
+* LoadAll：加载当前资源包中所有的资源
+* LoadAsync：从资源包中异步加载资源
+
+而在新版的AssetBundle中，加载资源的API已经变成了以下的几个：
+* LoadAsset：从资源包中加载指定的资源
+* LoadAllAsset：加载当前资源包中所有的资源
+* LoadAssetAsync：从资源包中异步加载资源
+
+=== 6.2.资源卸载 ===
+资源卸载部分的变化不大，使用的仍然是Unload方法。
+Unload
+
+**该方法会卸载运行时内存中包含在bundle中的所有资源。**
+**当传入的参数为true，则不仅仅内存中的AssetBundle对象包含的资源会被销毁。根据这些资源实例化而来的游戏内的对象也会销毁。**
+**当传入的参数为false，则仅仅销毁内存中的AssetBundle对象包含的资源。**

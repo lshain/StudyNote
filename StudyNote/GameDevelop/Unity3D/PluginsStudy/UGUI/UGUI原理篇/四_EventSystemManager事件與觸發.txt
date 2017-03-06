@@ -1,0 +1,228 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T14:50:01+08:00
+
+====== 四 EventSystemManager事件與觸發 ======
+Created 星期三 11 一月 2017
+
+=== 目標： ===
+	■ Event System 事件系統
+	■ Input Module 輸入控制
+	■ Graphic Raycaster
+	■ Physics Raycaster 與 Physics 2D Raycaster
+
+=== Event System ===
+在建立出UI時，Unity會自動幫我們建立Event System物件，此物件是基於滑鼠、觸摸、鍵盤的輸入方式，傳送 Event 到 Object 上，物件下有3個組件，分別為[[https://docs.unity3d.com/Manual/script-StandaloneInputModule.html|Event System Manager]]、[[https://docs.unity3d.com/Manual/script-TouchInputModule.html|Standalone Input Module]]、[[https://docs.unity3d.com/Manual/script-TouchInputModule.html|Touch Input Module]]
+{{./1.png}}
+
+== 1.Event System Manager ==
+{{./2.png}}
+控管所有Event，負責將滑鼠、觸摸、鍵盤輸入方式(Input Module) 與 被選中的 Object 互相協調，每個 “Update” Event System 都會接收所有呼叫，並判斷出這一瞬間要使用哪種Input Modules
+
+== Event System Info ==
+當按下Play後，點選Event System物件，會在inspector顯示 選中物件、位置、接收事件的Camera等等資訊
+{{./3.png}}
+
+== First Selected ==
+執行時第一次要選擇的Object，例如：選擇為 InputField (輸入框) 後 ，按下Play後就會將游標 Force 在 InputField 上
+
+== Send Navigation Events ==
+是否開啟UI導航功能，導航功能是可以用鍵盤的 “上”、”下”、”左”、”右”、”Cancel(Esc)”、”Sumit(Enter)” 控制選擇的UI
+舉例：如果畫面上有多個選單按鈕，我們可以設定按鈕上的 Navigation Options 這裡使用Explicit方式，來指定按下鍵盤 “上”、”下”、”左”、”右” 要選取哪一個物件
+
+Select On Up ：當鍵盤按下 “上” 鍵後要選擇的物件，Down、Left、Right 不多做贅述
+{{./4.png}}
+
+Visualize Buttin： 按下Visualize可以看到物件指向的黃線
+{{./5.png}}
+
+== Drag Threshold ==
+Drag Event靈敏度，越低越靈敏
+
+=== 2.Standalone Input Module ===
+{{./6.png}}
+
+電腦輸入控制模組，主要影響著滑鼠與鍵盤的輸入，使用 Scene 中的 Raycasters 計算哪個元素被點中，並傳遞 Event
+Horizontal Axis
+代表 Input Module 中的 Horizontal Axis，可以被設定為 Input Manager 中的值，Vertical Axis、Submit Button、Cancel Button 不多做贅述
+
+Input Actions Per Second
+每秒能輸入的最大按鈕與滑鼠次數
+
+Repeat Delay
+重複輸入的延遲
+
+事件執行完整流程
+鍵盤輸入
+1.Move Event：透過 input manager 驗證輸入 axis、left、right、up、down 按鈕，傳遞給 selected object
+2.Submit 、Cancel Button：物件已經 Preesed (按下)時，透過 input manager 驗證輸入  submit 、cancel 按鈕，傳遞給 selected object
+
+滑鼠輸入
+1.如果是新的按下
+a.傳送 PointerEnter event
+b.傳送 PointerPress event
+c.將 drag 相關暫存
+e.傳送 BeginDrag event
+f.設定Event system中的 selected object 為按下的Object
+
+2.如果是持續按下(Drag)
+a.處理移動相關
+b.傳送 Drag event
+c.處理 Drag 時跨到其他物體的 PointerEnter event、PointerExit event
+
+3.如果是釋放(滑鼠放開)
+a.傳送 PointerUp event
+b.如果滑鼠放開與按下時的物件一樣，傳送 PointerClick event
+c.如果有 drag 相關暫存，傳送 Drop event
+d.傳送EndDrag event
+
+4.滑鼠中鍵滾輪傳送scroll event
+
+=== 3.Touch Input Module ===
+{{./8.png}}
+
+觸摸輸入模組，主要用於移動設備上，可以透過Touch、Drag的方式響應，使用 Scene 中的 Raycasters 計算哪個元素被點中，並傳遞 Event
+
+事件執行完整流程
+與Standalone Input Module 的滑鼠輸入一樣，滑鼠點下想成觸摸即可
+
+=== 4.Event System 觸發流程 ===
+1.使用者輸入(滑鼠、觸摸、鍵盤)
+2.透過 Event System Manager 決定使用 Standalone 還是 Touch Input Module
+3.決定使用的 Input Module 後，透過 Scene 中的 Raycasters 計算哪個元素被點中
+4.傳送Event
+
+=== Graphic Raycaster (圖形 射線檢測員) ===
+組件位置：Unity Menu Item → Component → Event → Graphic Raycaster
+{{./9.png}}
+
+建立 Canvas 物件時下的其中一個 Component，Raycaster 會觀察 Canvas下所有圖形，並檢測是否被擊中，射線檢測其實就是指定位置與方向後，投射一條隱形線並判斷是否有碰撞體在線上，射線檢測這點官方已經有詳細說明，這裡用於判斷是否點選到UI圖形
+
+Ignore Reversed Graphics：
+背對著畫面的圖形，射線檢測是否要忽略此圖形
+舉例：當圖形Y軸進行旋轉180後，此時是背對著畫面，這時是如果有打勾，就會忽略不檢測此圖形
+
+Blocked Objects 、 Blocking Mask：
+主要用於當Canvas Component Render Mode 使用 World Space 或是 Camera Space 時，UI 前有 3D 或是 2D Object 時，將會阻礙射線傳遞到 UI 圖形
+Blocked Objects 阻礙射線的 Object 類型
+Blocking Mask 勾選的 Layer 將會阻礙射線
+
+舉例：如果畫面上有一個 Button 與 Cube 位置故意重疊，現在點擊重疊之處會發現 Button 還是會被觸發
+{{./1.gif}}
+
+如果將Cube 的 Layer 改為 Test01 ，Blocked Objects 設定為 Three D，Blocking Mask 只勾選 Test01，再次點選重疊區域，會發現 Cube 會阻礙射線檢測，此時按鈕會接收不到射線，當然也不會有反應
+{{./2.gif}}
+
+Physics Raycaster (物理物件 射線檢測員)
+組件位置：Unity Menu Item → Component → Event → Physics Raycaster
+
+透過 Camera 檢測 Scene 中的 3D GameObject(必須有 Collider Component)，有實現 Event Interfaces 接口的物件將會接收到 Message 通知，例如能讓 3D GameObject 能接收 點下Event 或是 拖拉Event 等等…..，[[https://docs.unity3d.com/Manual/SupportedEvents.html|看更多 Event 請點我]]
+
+接下來讓我們透過實例理解
+1.建立 EventSystem，進行 Event 處理
+物件位置：Unity Menu Item → GameObject → UI → EventSystem
+
+2.Camera下增加 Physics Raycaster Component，用來觀察射線
+{{./10.png}}
+
+3.實現 Event Interfaces 接口，這裡有兩種方式，一種是建立 Script 直接實作 Interfaces ，一種是使用[[docs.unity3d.com/Manual/script-EventTrigger.html|Event Trigger Component]]
+
+== 第一種 建立 Script 直接實作 Interfaces ==
+a.建立一個 Script，實作 Event Interfaces
+using UnityEngine;
+using UnityEngine.EventSystems;
+ 
+public class EventTest : MonoBehaviour, IPointerDownHandler
+{
+	public void OnPointerDown(PointerEventData eventData)
+	{
+		print(gameObject.name);
+	}
+}
+
+Line. 2：using  UnityEngine.EventSystems 匯入命名空間
+Line. 4：繼承 Event Interfaces，這裡是IPointerDownHandler(點下事件)，看更多 Event 請點我
+Line. 6~8：實作方法，傳入 PointerEventData 為事件資料
+
+b.建立一個3D物件(此稱為Cube)，並增加 BoxCollider Component
+{{./11.png}}
+
+c.將 Script 放至 Cube 下，Inspector 中會出現 Intercepted Events 資訊，顯示出正在監聽的 Event
+{{./12.png}}
+
+d.此時點擊 Cube 就會通知 OnPointerDown 方法並傳入事件資訊
+
+== 第二種 使用Event Trigger Component 實作 Interfaces ==
+a.建立一個 Script，實作方法，用於接收 Event Trigger 通知
+using UnityEngine;
+using UnityEngine.EventSystems;
+ 
+public class EventTriggerTest : MonoBehaviour
+{
+	//BaseEventData 動態傳入事件資訊
+	public void OnPointerDown(BaseEventData eventData)
+	{
+		print("OnPointerDown--BaseEventData");
+	}
+ 
+	//純呼叫
+	public void OnPointerDown()
+	{
+		print("OnPointerDown--non");
+	}
+ 
+	//傳入int
+	public void OnPointerDown(int i)
+	{
+		print("OnPointerDown--int");
+	}
+}
+
+Line. 2：using  UnityEngine.EventSystems 匯入命名空間
+Line. 6~8：實作方法，這邊實作3種
+
+b.建立一個3D物件(此稱為Cube)，並增加 BoxCollider Component
+{{./13.png}}
+
+c.將 Script 放至 Cube 下
+
+d.Cube 下加入 Event Trigger Component，主要接收來至 Event System 的 Event ，並呼叫有實作的 Event
+組件位置：Unity Menu Item → Component → Event → Event Trigger
+
+e.點選 Add New Event Type 選擇要實作的 Event 類型 ，這裡使用PointerDown(點下事件)舉例
+
+{{./14.png}}
+
+f.此時會新增一個UnityEvents，是一種透過編輯器設定的方式，設定 Event 觸發時要通知的方法與屬性，詳細可以參考以下，這邊簡單說明
+[[http://godstamps.blogspot.jp/2015/10/unity-unityengineevents.html|胡亂說‧隨便寫 – Unity：使用 UnityEngine.Events 讓程式更靈活、穩定]]
+[[docs.unity3d.com/Manual/UnityEvents.html|Unity – Manual: UnityEvents]]
+點下 “+” 按鈕後，拖入要通知的Scene GameObject，Unity Event 就會尋找此 GameObject 上所有 Public 的方法與屬性 ，就可以新增 Event 觸發時 “通知的方法” 與 “預修改屬性”
+
+g.GameObject 拖入 Cube，通知方法設定 Script 中的3個方法
+{{./15.png}}
+
+h.此時點擊 Cube 就會觸發 PointerDown ，通知 Script 中的3個方法
+
+4.實作注意點：
+■ Scene 必需有 EventSystem GameObject
+■ Camera 必需有 Physics Raycaster Component
+■ 3D GameObject 必須有 Collider Component
+■ 實作 Event Interfaces 的方式，一種是建立 Script 直接實作 Interfaces ，一種是使用 Event Trigger Component，由上面實作可以知道，使用 Event Trigger 的方式可以使用編輯器設定，設定觸發時的 “通知方法” 與 “修改屬性”，且更為彈性
+
+=== Physics 2D Raycaster ===
+組件位置：Unity Menu Item → Component → Event → Physics 2D Raycaster
+跟 Physics Raycaster 只差在於，Physics 2D Raycaster 是檢測 Scene 中的 2D GameObject，當然 GameObject 上必須有 Collider2D Component，這邊不再贅述
+
+=== 後記 ===
+我們透過輸入的方式不同與 Raycaster 的關係，理解了整個 Event System 觸發流程，而且也知道怎麼實作 Event 與應用 Event，不管是3D、2D、UI物件都可以方便的套用，大大提升開發速度、簡化語法，可說是非常方便的功能
+
+=== 參考資料 ===
+■ Unity – Manual: Event System
+http://docs.unity3d.com/Manual/EventSystem.html
+■ Unity – Manual: UnityEvents
+http://docs.unity3d.com/Manual/UnityEvents.html
+■ Unity – Raycasting
+http://unity3d.com/cn/learn/tutorials/modules/beginner/physics/raycasting
+■ 胡亂說‧隨便寫 – Unity：使用 UnityEngine.Events 讓程式更靈活、穩定
+http://godstamps.blogspot.tw/2015/10/unity-unityengineevents.html
+

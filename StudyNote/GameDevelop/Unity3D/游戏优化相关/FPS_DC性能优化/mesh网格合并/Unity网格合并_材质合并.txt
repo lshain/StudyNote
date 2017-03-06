@@ -1,0 +1,85 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T17:17:43+08:00
+
+====== Unity网格合并 材质合并 ======
+Created 星期一 09 一月 2017
+
+转自：http://blog.csdn.net/chenggong2dm/article/details/41699029
+
+写在前面：
+从优化角度，Mesh需要合并。
+从换装的角度（这里指的是换形状、换组成部件的换装，而不是挂点型的换装），都需要网格合并、材质合并。如果是人物的换装，那么需要合并SkinnedMeshRenderer，并重刷对应的骨骼列表。
+
+示例：
+1，新建两个Cube，和一个Cylinder。分别作为坦克的底盘（Cube_chassis）、炮塔（Cube_turret）、炮管（Cylinder_gun）。如下图所示。
+{{./1.jpg}}
+
+2，为了测试换装，我们加入三个材质球，调整一下颜色，然后分别赋给底盘（Cube_chassis）、炮塔（Cube_turret）、炮管（Cylinder_gun）。
+{{./2.jpg}}
+
+3，把炮塔（Cube_turret）和炮管（Cylinder_gun），变成底盘（Cube_chassis）的子物体。也就是说，新的模型，是以底盘为基础的。
+{{./3.jpg}}
+
+4，用CombineMeshes方法，合并mesh。并且用代码把【材质】也一起“合并”了。把下面的Combine_Test.cs文件，拖拽到底盘（Cube_chassis）上，之后运行。
+
+	using UnityEngine;  
+	using System.Collections;  
+      
+	public class Combine_Test : MonoBehaviour {  
+      
+		// Use this for initialization  
+		void Start ()  
+		{  
+			//---------------- 先获取材质 -------------------------  
+			//获取自身和所有子物体中所有MeshRenderer组件  
+			MeshRenderer[] meshRenderers = GetComponentsInChildren<MeshRenderer>();    
+			//新建材质球数组  
+			Material[] mats = new Material[meshRenderers.Length];    
+			for (int i = 0; i < meshRenderers.Length; i++) {  
+				//生成材质球数组   
+				mats[i] = meshRenderers[i].sharedMaterial;     
+			}  
+			//---------------- 合并 Mesh -------------------------  
+			//获取自身和所有子物体中所有MeshFilter组件  
+			MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();    
+			CombineInstance[] combine = new CombineInstance[meshFilters.Length];     
+			for (int i = 0; i < meshFilters.Length; i++) {  
+				combine[i].mesh = meshFilters[i].sharedMesh;  
+				//矩阵(Matrix)自身空间坐标的点转换成世界空间坐标的点   
+				combine[i].transform = meshFilters[i].transform.localToWorldMatrix;  
+				meshFilters[i].gameObject.SetActive(false);  
+			}   
+			//为新的整体新建一个mesh  
+			transform.GetComponent<MeshFilter>().mesh = new Mesh();   
+			//合并Mesh. 第二个false参数, 表示并不合并为一个网格, 而是一个子网格列表  
+			transform.GetComponent<MeshFilter>().mesh.CombineMeshes(combine, false);  
+			transform.gameObject.SetActive(true);  
+      
+			//为合并后的新Mesh指定材质 ------------------------------  
+			transform.GetComponent<MeshRenderer>().sharedMaterials = mats;   
+		}  
+          
+		// Update is called once per frame  
+		void Update () {  
+              
+		}  
+	}  
+
+5，运行效果如下。可以看到，Mesh和材质，都很好的得到了合并。坦克已经由零件，变成一个整体了！
+
+但是，大家会发现这个模型，产生了一些变形！难道是这样不对，或者是bug么？不，其实不用担心。这是因为前面用的Cube、Cylinder 等模拟底盘炮塔，手动调节了他们的缩放比例放造成的。如果以某个组件为根物体，那么它的缩放比例，直接影响合并后生成的新物体。各个部件的缩放比都会按它走！。
+
+也就是说，如果你想合并后不变形，就不要更改根物体的缩放比例。
+{{./4.jpg}}
+
+参考：
+关键函数，就是下面这个合并网格的函数了：
+CombineMeshes(CombineInstance[]combine, boolmergeSubMeshes = true, booluseMatrices = true);
+
+Unity官网，关于网格合并的例子：
+http://docs.unity3d.com/ScriptReference/Mesh.CombineMeshes.html 
+
+
+程序员俱乐部-Unity3d网格合并：
+http://www.cxyclub.cn/n/54078/

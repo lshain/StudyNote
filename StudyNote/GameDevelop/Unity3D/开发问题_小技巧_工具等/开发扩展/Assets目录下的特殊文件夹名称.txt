@@ -1,0 +1,71 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-04T16:41:00+08:00
+
+====== Assets Special Folder ======
+Created 星期一 04 一月 2016
+
+===== Assets目录下的特殊文件夹名称 =====
+
+===== 1.隐藏文件夹 =====
+以.开头的文件夹会被Unity忽略。在这种文件夹中的资源不会被导入，脚本不会被编译。也不会出现在Project视图中。
+
+===== 2.Standard Assets =====
+在这个文件夹中的脚本最先被编译。
+这个文件夹中的脚本会被导出到Assembly-CSharp-firstpass, Assembly-UnityScript-firstpass 或 Assembly-Boo-firstpass项目中，依语言而定。
+参考http://docs.unity3d.com/Documentation/Manual/ScriptCompileOrderFolders.html 。
+在这个文件夹中的脚本比其他脚本都要先编译。将脚本放在这个文件夹里，就可以用C#脚本来访问js脚本或其他语言的脚本。
+
+===== 3.Pro Standard Assets =====
+跟Standard Assets相同，只不过里面的文件是给Pro版本的Unity使用的。
+
+===== 4.Editor =====
+以Editor命名的文件夹允许其中的脚本访问Unity Editor的API。如果脚本中使用了在UnityEditor命名空间中的类或方法，它必须被放在名为Editor的文件夹中。Editor文件夹中的脚本不会在build时被包含。
+在项目中可以有多个Editor文件夹。
+注意：如果在普通的文件夹下，Editor文件夹可以处于目录的任何层级。如果在特殊文件夹下，那Editor文件夹必须是特殊文件夹的直接子目录。
+
+===== 5.Plugins =====
+Plugins文件夹用来放native插件。它们会被自动包含进build中去。注意这个文件夹只能是Assets文件夹的直接子目录。
+在Windows平台下，native 插件是dll文件；
+在Mac OS X下，是bundle文件；
+在Linux下，是.so文件。
+跟Standard Assets一样，这里的脚本会更早的编译，允许它们被之外的脚本访问。
+
+=== 5.1.Plugins/x86 ===
+如果为32bit或64bit平台创建游戏，那么这个文件夹下的native plugin文件会被自动的包含在游戏build中。如果这个文件夹不存在，则Unity会查找Plugins文件夹下的native pluglins。
+
+=== 5.2.Plugins/x86_64 ===
+如果为32bit或64bit平台创建游戏，那么这个文件夹下的native plugin文件会被自动的包含在游戏build中。如果这个文件夹不存在，则Unity会查找Plugins文件夹下的native pluglins。
+
+如果要创建universal build，建议你同时使用这两个文件夹。然后将32bit和64bit的native plugins放进相应的文件夹中。
+
+=== 5.3.Plugins/Android ===
+在这个文件夹里放入Java.jar文件。用于java语言的plugins。.so文件也会被包含进来。参考http://docs.unity3d.com/Documentation/Manual/PluginsForAndroid.html
+
+=== 5.4.Plugins/iOS ===
+A limited, simple way to automatically add (as symbolic links) any .a, .m, .mm, .c, or .cpp files into the generated Xcode project. See http://docs.unity3d.com/Documentation/Manual/PluginsForIOS.html
+If you need more control how to automatically add files to the Xcode project, you should make use of the PostprocessBuildPlayer feature. 
+Doing so does not require you to place such files in the Plugins/iOS folder. See http://docs.unity3d.com/Documentation/Manual/BuildPlayerPipeline.html
+
+===== 6.Resources =====
+Resources文件夹允许你在脚本中通过文件路径和名称来访问资源。但还是推荐使用直接引用来访问资源。
+放在这一文件夹的资源永远被包含进build中，即使它没有被使用。因为Unity无法判断脚本有没有访问了其中的资源。
+项目中可以有多个Resources文件夹，因此不建议在多个文件夹中放同名的资源。
+一旦build游戏，Resources文件夹中的所有资源被打包进游戏存放资源的archive中。这样在游戏的build中就不存在Resources文件夹了。即使脚本中仍然使用了资源在项目中的路径。参考 http://docs.unity3d.com/Documentation/Manual/LoadingResourcesatRuntime.html
+注意：当资源作为脚本变量被访问时，这些资源在脚本被实例化后就被加载进内存。如果资源太大，你可能不希望它被这样加载。那么你可以将这些大资源放进Resources文件夹中，通过Resources.Load来加载。当不再使用这些资源了，可以通过Destroy物体，再调用Resources.UnloadUnusedAssets来释放内存。
+
+===== 7.Editor Default Resources =====
+这是为editor脚本使用的文件夹。
+
+===== 8.Gizmos =====
+Gizmos文件夹存放用Gizmos.DrawIcon方法使用的贴图、图标资源。放在Gizmos文件夹中的贴图资源可以直接通过名称使用，可以被Editor作为gizmo画在屏幕上。
+
+===== 9.WebPlayerTemplates =====
+用来替换web build的默认网页。这个文件夹中的脚本都不会被编译。这个文件夹必须作为Assets文件夹的直接子目录。
+
+===== 10.StreamingAssets =====
+这里的文件会被拷贝到build文件夹中，不会修改（移动和网页版不同，他们会被嵌入到最终build文件中）。它们的路径会因平台而有差异，但都可以通过Application.streamingAssetsPath来访问。
+参考http://docs.unity3d.com/Documentation/Manual/StreamingAssets.html%E5%92%8Chttp://docs.unity3d.com/Documentation/ScriptReference/Application-streamingAssetsPath.html%E3%80%82
+
+参考文献：
+http://wiki.unity3d.com/index.php/Special_Folder_Names_in_your_Assets_Folder

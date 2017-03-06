@@ -1,0 +1,172 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-12-01T17:03:05+08:00
+
+====== USACO Wormholes ======
+Created 星期四 01 十二月 2016
+
+翻译：
+农夫约翰爱好在周末进行高能物理实验的结果却适得其反，导致N个虫洞在农场上（2<=N<=12，n是偶数），每个在农场二维地图的一个不同点。 根据他的计算，约翰知道他的虫洞将形成 N/2 连接配对。例如，如果A和B的虫洞连接成一对，进入虫洞A的任何对象体将从虫洞B出去，朝着同一个方向，而且进入虫洞B的任何对象将同样从虫洞A出去，朝着相同的方向前进。这可能发生相当令人不快的后果。 例如，假设有两个成对的虫洞A(1，1) 和 B(3，1)，贝茜从(2，1)开始朝着 +x 方向（右）的位置移动。贝茜将进入虫洞 B（在(3,1)），从A出去（在(1,1)），然后再次进入B，困在一个无限循环中！ | . . . . | A > B . 贝茜会穿过B，A，
++ . . . . 然后再次穿过B
+
+农夫约翰知道他的农场里每个虫洞的确切位置。他知道贝茜总是向 +x 方向走进来，虽然他不记得贝茜的当前位置。请帮助农夫约翰计算不同的虫洞配对（情况），使贝茜可能被困在一个无限循环中，如果她从不幸的位置开始。
+
+PROGRAM NAME: wormhole
+INPUT FORMAT:
+(file wormhole.in)
+第1行：N，虫洞的数目
+第2到N+1行：每一行都包含两个空格分隔的整数，描述一个以(x,y)为坐标的单一的虫洞。每个坐标是在范围 0..1000000000。
+OUTPUT FORMAT:
+(file wormhole.out)
+第1行：会使贝茜从某个起始点出发沿+x方向移动卡在循环中的不同的配对数。
+
+SAMPLE INPUT
+
+4
+0 0
+1 0
+1 1
+0 1
+
+SAMPLE OUTPUT
+
+2
+
+题解
+1. 先对数据进行排序，让数据以y坐标严格递增，当y相同时以x严格递增，这样做的好处是，你能够在O(1)时间找出贝茜行走的下一个坐标位置，或者判断出贝茜行走方向上有没下一个点。
+2. 配对数枚举
+	思路如下： 按1步奏排序后 
+					第一对 取1位置 和 剩下的n-1个位置配对 （共n-1对）
+					第二队 取上一步选剩的位置中的 1位置 和 剩下的n-3个位置配对 （共n-3对）
+					....
+					选出n/2对位置后  枚举每一个点，模拟判断 是否有死循环
+
+/*
+ID: lshain.1
+LANG: C++
+TASK: wormhole
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <algorithm>
+
+static const char* FILE_IN = "wormhole.in";
+static const char* FILE_OUT = "wormhole.out";
+
+int n = 0;
+struct Point {
+	int x;
+	int y;
+}points[20];
+
+int order[20];
+int orderEx[20];
+int mark[20];
+int sum = 0;
+int is_loop = 0;
+int check[20];
+
+int next(int from) {
+	int to = ( from & 1 ) ? ( from - 1 ) : ( from + 1 );
+	int toIdx = order[to];
+	int x = points[toIdx].x;
+	int y = points[toIdx].y;
+	int ret = -1;
+
+	if (points[toIdx + 1].y == y) {
+		ret = orderEx[toIdx + 1];
+	}
+
+	return ret;
+}
+
+void trave(int idx){
+	if (idx >= 0) {
+		if (!check[idx]) {
+			int nt = next(idx);
+			check[idx] = 1;
+			trave(nt);
+		}
+		else {
+			is_loop = 1;
+		}
+	}
+}
+
+void gen_order(int level){
+	if (level == n){
+		is_loop = 0;
+
+		for (int i = 0; i < n && !is_loop; i++) {
+			orderEx[order[i]] = i;
+		}
+
+		for (int i = 0; i < n && !is_loop; i++){
+			memset(check, 0x00, sizeof(check));
+			trave(i);
+		}
+
+		if (1 == is_loop) {
+			sum++;
+		}
+
+		//for (int i = 0; i < n; i++) {
+		//	printf("%3d", order[i]);
+		//}
+
+		//printf("\nis_loop = %d\n\n", is_loop);
+
+		return;
+	}
+
+	for (int i = 0; i < n; i++) {
+		if (!mark[i]) {
+			mark[i] = 1;
+			order[level] = i;
+			
+			for (int j = 0; j < n; j++) {
+				if (!mark[j]) {
+					mark[j] = 1;
+					order[level + 1] = j;
+					gen_order(level + 2);
+					mark[j] = 0;
+				}
+			}
+
+			mark[i] = 0;
+			break;
+		}
+	}
+}
+
+bool compare(struct Point& a, struct Point& b)
+{
+	if (a.y < b.y || (a.y == b.y && a.x < b.x)) {
+		return true;
+	}
+
+	return false;
+}
+
+void solve(){
+	scanf("%d", &n);
+	for (int i = 0; i < n; i++) {
+		scanf("%d %d", &points[i].x, &points[i].y);
+	}
+
+	std::sort(points, points + n, compare);
+
+	gen_order(0);
+	printf("%d\n", sum);
+}
+
+int main(int argc, char* argv[])
+{
+	freopen(FILE_IN, "r", stdin);
+	freopen(FILE_OUT, "w", stdout);
+
+	solve();
+
+	return 0;
+}

@@ -1,0 +1,68 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T14:15:00+08:00
+
+====== 将UI的点击事件渗透下去 ======
+Created 星期二 10 一月 2017
+
+处理UI还有3D模型的点击推荐使用UGUI的这套事件系统，因为使用起来比较简洁，不需要自己用代码来发送射线，并且可以很好的处理同时点击UI和3D模型上。
+
+1.给3D摄像机挂一个Physics Raycaster组件。Event Mask过滤掉UI.
+2.用unity自带的Event Trigger 或者   http://www.xuanyusong.com/archives/3325 就可以对UI 或者 3D模型进行点击事件的监听了
+3.OK 当UI与模型相互叠加的时候，优先响应UI，并且响应最前面的UI.
+4.如下图所示，前面是UI后面是3D模型，被挡住的模型或者UI是不会被响应的。
+
+{{./1.png}}
+
+假如想把点击的事件透下去，让所有的UI或者模型都能正确的响应事件，怎么办呢？
+
+代码： 把这段脚本挂在最前面的UI上。 然后当接收到点击事件后，调用PassEvent把当前的事件透下去。由于UGUI的事件有很多种，比如点击 、抬起、拖动、落下、第二个参数就是ExecuteEvents.Handler 把对应的Handler传进去就行了。
+
+using UnityEngine;
+using System.Collections;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using System.Collections.Generic;
+ 
+public class Test : MonoBehaviour,IPointerClickHandler ,IPointerDownHandler,IPointerUpHandler
+{ 
+	//监听按下
+	public void OnPointerDown(PointerEventData eventData)
+	{
+		PassEvent(eventData,ExecuteEvents.pointerDownHandler);
+	}
+ 
+	//监听抬起
+	public void OnPointerUp(PointerEventData eventData)
+	{
+		PassEvent(eventData,ExecuteEvents.pointerUpHandler);
+	}
+ 
+	//监听点击
+	public void OnPointerClick(PointerEventData eventData)
+	{
+		PassEvent(eventData,ExecuteEvents.submitHandler);
+		PassEvent(eventData,ExecuteEvents.pointerClickHandler);
+	}
+ 
+	//把事件透下去
+	public void  PassEvent<T>(PointerEventData data,ExecuteEvents.EventFunction<T> function)
+		where T : IEventSystemHandler
+	{
+		List<RaycastResult> results = new List<RaycastResult>();
+		EventSystem.current.RaycastAll(data, results); 
+		GameObject current = data.pointerCurrentRaycast.gameObject ;
+		for(int i =0; i< results.Count;i++)
+		{
+			if(current!= results[i].gameObject)
+			{
+				ExecuteEvents.Execute(results[i].gameObject, data,function);
+				//RaycastAll后ugui会自己排序，如果你只想响应透下去的最近的一个响应，这里ExecuteEvents.Execute后直接break就行。
+			}
+		}
+	}
+}
+
+这样UI下面那些对应接收点击事件的地方都可以响应到了。。如下图所示，我点击在前面的UI后面的消息也能响应到了。
+{{./2.png}}
+

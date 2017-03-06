@@ -1,0 +1,177 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-16T16:47:04+08:00
+
+====== 2 通过修改UV坐标来滚动textures ======
+Created 星期四 16 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17754427
+
+=== 准备工作 ===
+1. 打开Unity，创建一个新的Shader和一个新的Material，名字分别为ScrollingUVs；
+2. 确保你已下载相关资源，将第二章所需资源（在Unity assets下）导入Unity；
+3. 新建一个场景，名为ScrollingUV_Scene，并新建一个光源。找到第二步中导入Unity中的模型River_GRP.fbx，拖入新建的场景中，调节摄像机位置，使River_GRP出现在合适的视角范围内；
+4. 场景中的River_GRP应该包含了两个子物体，Ground_GEO和River_GEO。改变River_GEO使用的Material为第一步中创建的新的Material，Ground_GEO使用其默认材质即可。
+5. 最后你可以看到类似下面的情景（我更改了Ground_GEO使用的材质的颜色，因此会呈现出土黄色）：
+{{./1.png}}
+
+=== 实现 ===
+1. 添加两个新的Properties，使得我们可以调整texture的滚动速度：
+Properties {  
+	_MainTex ("Base (RGB)", 2D) = "white" {}  
+	// Add two properties  
+	_ScrollXSpeed ("X Scroll Speed", Range(0, 10)) = 2  
+	_ScrollYSpeed ("Y Scroll Speed", Range(0, 10)) = 2  
+}
+
+2. 在CGPROGRAM部分修改代码，添加两个新的变量，对应上面新增的两个Properties，以使我们可以在后面访问它们：
+CGPROGRAM  
+#pragma surface surf Lambert  
+  
+sampler2D _MainTex;  
+fixed _ScrollXSpeed;  
+fixed _ScrollYSpeed; 
+
+3. 修改surf函数，通过tex2D函数来改变UV坐标。然后使用内置的_Time变量来根据运行时间滚动texture：
+void surf (Input IN, inout SurfaceOutput o) {  
+	fixed2 scrolledUV = IN.uv_MainTex;  
+      
+	fixed xScrollValue = _ScrollXSpeed * _Time.y;  
+	fixed yScrollValue = _ScrollYSpeed * _Time.y;  
+      
+	scrolledUV += fixed2(xScrollValue, yScrollValue);  
+      
+	half4 c = tex2D (_MainTex, scrolledUV);  
+	o.Albedo = c.rgb;  
+	o.Alpha = c.a;  
+}
+
+4. 最后，Shader代码如下所示：
+Shader "Custom/ScrollingUVs" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+		// Add two properties  
+		_ScrollXSpeed ("X Scroll Speed", Range(0, 10)) = 2  
+		_ScrollYSpeed ("Y Scroll Speed", Range(0, 10)) = 2  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+		fixed _ScrollXSpeed;  
+		fixed _ScrollYSpeed;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			fixed2 scrolledUV = IN.uv_MainTex;  
+              
+			fixed xScrollValue = _ScrollXSpeed * _Time.y;  
+			fixed yScrollValue = _ScrollYSpeed * _Time.y;  
+              
+			scrolledUV += fixed2(xScrollValue, yScrollValue);  
+              
+			half4 c = tex2D (_MainTex, scrolledUV);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+5. 回到Unity的Inspector面板，给材质拖拽适当的texture（例如Chapter02_WaterfallGraph_Diffuse）。最后你会看到如下的效果（点击Play后可以看到动态效果）：
+
+=== 解释 ===
+1. 添加的两个Properties允许我们可以在Material的Inspector面板中控制Shader中使用的那些变量。详情可见上一章；
+2. 在surf函数中，我们首先将UV坐标存储在scrolledUV变量中，并且该变量需要是float2类型或者fixed2类型。这是因为我们是通过以下定义的结构来传递UV的：
+struct Input {  
+	float2 uv_MainTex;  
+}; 
+
+3. 随后，我们通过内置变量_Time计算UV偏移量。_Time变量返回一个float4类型的变量。关于Unity内置变量的详细信息请参见官方文档；
+4. 最后，我们将计算而得的偏移量叠加到之前得到的UV坐标scrolledUV上，得到最终的UV坐标，并通过tex2D函数访问该像素值。
+
+=== 结束语 ===
+上面最后的效果还是不尽如人意。实际上，很多时候我们使用C#代码等来控制材质滚动，而不是在Shader中。这是因为不同的surface可能使用同一个Shader，但是需要不同的滚动速度，如果在Shader中定义这种速度，就无法实现不同的移动效果。
+上面的Shader之所以不是非常美观，还有一点是因为它的光照渲染模型是Diffuse。而很多情况下，还需要透明、反射等性质。下面我们给出一种比较实用的Shader和UV滚动代码。
+效果图如下：
+{{./2.png}}
+
+Shader如下：
+Shader "Mobile/Transparent/Vertex Color" {  
+	Properties {  
+		_Color ("Main Color", Color) = (1,1,1,1)  
+		_SpecColor ("Spec Color", Color) = (1,1,1,0)  
+		_Emission ("Emmisive Color", Color) = (0,0,0,0)  
+		_Shininess ("Shininess", Range (0.1, 1)) = 0.7  
+		_MainTex ("Base (RGB) Trans (A)", 2D) = "white" {}  
+	}  
+      
+	Category {  
+		Tags {"Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent"}  
+		ZWrite Off  
+		Alphatest Greater 0  
+		Blend SrcAlpha OneMinusSrcAlpha   
+		SubShader {  
+			Material {  
+				Diffuse [_Color]  
+				Ambient [_Color]  
+				Shininess [_Shininess]  
+				Specular [_SpecColor]  
+				Emission [_Emission]      
+			}  
+			Pass {  
+				ColorMaterial AmbientAndDiffuse  
+				Fog { Mode Off }  
+				Lighting Off  
+				SeparateSpecular On  
+				SetTexture [_MainTex] {  
+				Combine texture * primary, texture * primary  
+			}  
+			SetTexture [_MainTex] {  
+				constantColor [_Color]  
+				Combine previous * constant DOUBLE, previous * constant  
+			}    
+			}  
+		}   
+	}  
+}
+
+控制UV滚动代码如下：
+using UnityEngine;  
+using System.Collections;  
+  
+public class WaterFlow : MonoBehaviour {  
+  
+	public float m_SpeedU = 0.1f;  
+	public float m_SpeedV = -0.1f;  
+  
+	// Update is called once per frame  
+	void Update () {  
+		float newOffsetU = Time.time * m_SpeedU;  
+		float newOffsetV = Time.time * m_SpeedV;  
+  
+		if (this.renderer)  
+		{  
+			renderer.material.mainTextureOffset = new Vector2(newOffsetU, newOffsetV);  
+		}  
+	}  
+}
+
+河流所使用的Material的Shader配置如下（这里的River仅仅是一个Plane）：
+{{./3.png}}
+
+当然，可以选择不同的texture并调整上面的Main Color、Spec Color、Emmisive Color、Shininess等值来得到需要的效果。
+需要注意的是，上面的River下面实际上还包含了一层地面，即如果没有River，画面是这样的：
+{{./4.png}}
+
+除了Shader外，上面的代码很好理解。对于Shader内部的实现原理，呜，还需要深入理解一下，希望在后面的内容里会补充到。
+
+好了，这次就到这里！

@@ -1,0 +1,32 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T22:58:08+08:00
+
+====== 19 提前获取Text的宽度 ======
+Created 星期二 05 四月 2016
+
+转自：http://www.xuanyusong.com/archives/3587
+
+Unity提供的两个获取文件宽高的方法 preferredWidth 和preferredHeight 必须是文字在Text组件中渲染出来以后才能取到。因为我们游戏的聊天框中是可以输入表情，所以图文混排工具需要支持自动换行的功能。那么这里问题就来了我需要提前获取Text的宽度，这样我才能知道文字什么时候进行换行。
+
+总体来说和NGUI的思路完全一样。提前把文字渲到材质上，这样就可以取出来宽度了。
+
+void Start () {
+
+	Font font = Resources.Load<Font>("FZCQJW");
+ 
+	int fontsize=35;
+	string text = "宣雨松MOMO";
+	font.RequestCharactersInTexture(text,fontsize,FontStyle.Normal);
+	CharacterInfo characterInfo;
+	float width=0f;
+	for(int i=0; i<text.Length;i++){
+			
+		font.GetCharacterInfo(text[i],out characterInfo,fontsize);
+		//width+=characterInfo.width; unity5.x提示此方法将来要废弃
+		width+=characterInfo.advance;
+	}
+ 
+	Debug.Log("width : " + width);
+}
+

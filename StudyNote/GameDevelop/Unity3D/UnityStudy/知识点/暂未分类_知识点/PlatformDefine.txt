@@ -1,0 +1,57 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-27T00:54:46+08:00
+
+====== PlatformDefine ======
+Created 星期六 27 二月 2016
+
+UNITY_EDITOR
+Define for calling Unity Editor scripts from your game code.
+
+UNITY_STANDALONE_OSX
+Platform define for compiling/executing code specifically for Mac OS (This includes Universal, PPC and Intel architectures).
+
+UNITY_DASHBOARD_WIDGET
+Platform define when creating code for Mac OS dashboard widgets.
+
+UNITY_STANDALONE_WIN
+Use this when you want to compile/execute code for Windows stand alone applications.
+
+UNITY_STANDALONE_LINUX
+Use this when you want to compile/execute code for Linux stand alone applications.
+
+UNITY_STANDALONE
+Use this to compile/execute code for any standalone platform (Mac, Windows or Linux).
+
+UNITY_WEBPLAYER
+Platform define for web player content (this includes Windows and Mac Web player executables).
+
+UNITY_WII
+Platform define for compiling/executing code for the Wii console.
+
+UNITY_IPHONE
+Platform define for compiling/executing code for the iPhone platform.
+
+UNITY_ANDROID
+Platform define for the Android platform.
+
+UNITY_PS3
+Platform define for running PlayStation 3 code.
+
+UNITY_XBOX360
+Platform define for executing Xbox 360 code.
+
+UNITY_NACL
+Platform define when compiling code for Google native client (this will be set additionally to UNITY_WEBPLAYER).
+
+UNITY_FLASH
+Platform define when compiling code for Adobe Flash.
+
+UNITY_BLACKBERRY
+Platform define for a Blackberry10 device.
+
+UNITY_WP8
+Platform define for Windows Phone 8.
+
+UNITY_METRO
+Platform define for Windows Store Apps (additionally NETFX_CORE is defined when compiling C# files against .NET Core).

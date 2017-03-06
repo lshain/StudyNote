@@ -1,0 +1,150 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T10:58:37+08:00
+
+====== 查找资源被哪里引用了 ======
+Created 星期一 09 一月 2017
+
+Unity提供了一个方法 AssetDatabase.GetDependencies()，但是它只能查找这个资源引用了那些资源。 但是我想要的是查找某个资源被那些资源引用了，这是两种相反的查找公式。 其实网上也有很多这样的插件了，似乎代码量都太多了。昨天晚上加班时脑洞打开，想到了一个简单的方法。通过GUID全局搜索匹配。。几行代码就能搞定～～
+
+如下图所示，右键随便选择一个资源，点击 Find References。
+
+{{./1.png}}
+
+然后开始匹配资源。
+
+{{./2.png}}
+
+匹配结束后会把匹配到的资源Log出来。以下代码直接放到你的工程里就可以直接用。
+
+using UnityEngine;
+using System.Collections;
+using UnityEditor;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
+ 
+public class FindReferences
+{
+  
+	[MenuItem("Assets/Find References", false, 10)]
+	static private void Find()
+	{
+		EditorSettings.serializationMode = SerializationMode.ForceText;
+		string path = AssetDatabase.GetAssetPath(Selection.activeObject);
+		if (!string.IsNullOrEmpty(path))
+		{
+			string guid = AssetDatabase.AssetPathToGUID(path);
+			List withoutExtensions = new List(){".prefab",".unity",".mat",".asset"};
+			string[] files = Directory.GetFiles(Application.dataPath, "*.*", SearchOption.AllDirectories)
+				.Where(s => withoutExtensions.Contains(Path.GetExtension(s).ToLower())).ToArray();
+			int startIndex = 0;
+ 
+			EditorApplication.update = delegate()
+			{
+				string file = files[startIndex];
+            
+				 bool isCancel = EditorUtility.DisplayCancelableProgressBar("匹配资源中", file, (float)startIndex / (float)files.Length);
+ 
+				if (Regex.IsMatch(File.ReadAllText(file), guid))
+				{
+					Debug.Log(file, AssetDatabase.LoadAssetAtPath<Object>(GetRelativeAssetsPath(file)));
+				}
+ 
+				startIndex++;
+				if (isCancel || startIndex >= files.Length)
+				{
+					EditorUtility.ClearProgressBar();
+					EditorApplication.update = null;
+					startIndex = 0;
+					Debug.Log("匹配结束");
+				}
+ 
+			};
+		}
+	}
+ 
+	[MenuItem("Assets/Find References", true)]
+	static private bool VFind()
+	{
+		string path = AssetDatabase.GetAssetPath(Selection.activeObject);
+		return (!string.IsNullOrEmpty(path));
+	}
+ 
+	static private string GetRelativeAssetsPath(string path)
+	{
+		return "Assets" + Path.GetFullPath(path).Replace(Path.GetFullPath(Application.dataPath), "").Replace('\\', '/');
+	}
+}
+
+美中不足的地方就是查找速度了。。其实正则表达式匹配的速度还是很快，慢的地方是File.ReadAllText(file) 如果大家有更好的办法，欢迎推荐～
+
+今天我无意发现了一个更快的方法，可惜只能在mac上用。比我上面的方法要快N倍啊，快的丧心病狂啊～欢迎大家用啊～～。。。
+
+using UnityEngine;
+using System.Collections;
+using UnityEditor;
+using System.Collections.Generic;
+ 
+public class FindProject {
+	
+	#if UNITY_EDITOR_OSX
+	
+	[MenuItem("Assets/Find References In Project", false, 2000)]
+	private static void FindProjectReferences()
+	{
+		string appDataPath = Application.dataPath;
+		string output = "";
+		string selectedAssetPath = AssetDatabase.GetAssetPath (Selection.activeObject);
+		List<string> references = new List<string>();
+		
+		string guid = AssetDatabase.AssetPathToGUID (selectedAssetPath);
+		
+		var psi = new System.Diagnostics.ProcessStartInfo();
+		psi.WindowStyle = System.Diagnostics.ProcessWindowStyle.Maximized;
+		psi.FileName = "/usr/bin/mdfind";
+		psi.Arguments = "-onlyin " + Application.dataPath + " " + guid;
+		psi.UseShellExecute = false;
+		psi.RedirectStandardOutput = true;
+		psi.RedirectStandardError = true;
+		
+		System.Diagnostics.Process process = new System.Diagnostics.Process();
+		process.StartInfo = psi;
+		
+		process.OutputDataReceived += (sender, e) => {
+			if(string.IsNullOrEmpty(e.Data))
+				return;
+			
+			string relativePath = "Assets" + e.Data.Replace(appDataPath, "");
+			
+			// skip the meta file of whatever we have selected
+			if(relativePath == selectedAssetPath + ".meta")
+				return;
+			
+			references.Add(relativePath);
+			
+		};
+		process.ErrorDataReceived += (sender, e) => {
+			if(string.IsNullOrEmpty(e.Data))
+				return;
+			
+			output += "Error: " + e.Data + "\n";
+		};
+		process.Start();
+		process.BeginOutputReadLine();
+		process.BeginErrorReadLine();
+		
+		process.WaitForExit(2000);
+		
+		foreach(var file in references){
+			output += file + "\n";
+			Debug.Log(file, AssetDatabase.LoadMainAssetAtPath(file));
+		}
+		
+		Debug.LogWarning(references.Count + " references found for object " + Selection.activeObject.name + "\n\n" + output);
+	}
+	
+	#endif
+

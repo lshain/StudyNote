@@ -1,0 +1,54 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T14:08:14+08:00
+
+====== 1 概述及Diffuse Shading介绍 ======
+Created 星期日 12 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17097907
+
+=== 概述 ===
+几个月以前我就一直在找关于Unity Shader相关的资料，大三的时候有一门叫《计算机图形学》，让我觉得如果游戏程序员要从beginner成长为advancer，就必须了解底层渲染的一些知识。
+
+Unity3D无疑是一个非常出色的游戏引擎，它让很多独立开发者真正能够独立开发一款让自己满意的游戏，而不需要考虑那些烦人的细节，正如Unity宣称的那样，让他们来做那些令人抓狂的事情吧！但是，在我们制作游戏的时候，经常会让游戏带有明显的“made in Unity”的感觉：明显的锯齿，糟糕的游戏性能，不真实的场景等等。当然这不是Unity引擎的错误，我相信它提供了很多强大的优化支持，支持很多自学者没有接触和学习这些高级技巧，就制作出了那样画面粗糙的游戏。
+
+像育碧、盛大这种大型游戏公司，还是非常看重程序员对计算机图形学方面的知识，因为他们面向的对象是广大PC机，对画面和性能都有非常高的要求。而对于手机游戏，虽然现在手机硬件对渲染的支持还不是非常广泛，但是我们有理由相信，在这个发展迅速的时代，手机硬件的支持已经不再是梦想，手机游戏对画质的要求也一定越来越高。掌握shaders的原理和技术，我想是一个想要成长为更高level的游戏程序员不可或缺的部分。
+
+哈，就在前两天，我发现了一本书，[[http://www.packtpub.com/unity--shaders-and-effects-cookbook/book|《Unity Shaders and Effects Cookbook》]]，这是我目前发现的第一本系统讲述Unity Shaders的书籍，我当时高兴坏了，毕竟之前都只是查看手册和一些论坛里的留言，非常零散。看了评论也是非常不错，因此决定把这本书当成以后学习Unity Shader的资料，并在博客里记录下学习的体会。
+
+[[https://www.packtpub.com/sites/default/files/downloads/5084OT_Images.pdf|这里]]是本书所有的插图，先看看过个瘾吧！
+
+[[http://download.csdn.net/detail/candycat1992/6798871|这里]]是本书所需的代码和资源。
+
+在这篇文章里，先对Diffuse Shading开个头。
+
+=== Diffuse Shading 介绍 ===
+可以说Diffuse Shading是所有高级Shader的基础。几乎每个讲计算机图形渲染的书的第一章都是这个。在过去的计算机图形硬件中，这是通过固定渲染流水线来完成的。学过OpenGL等类似语言的人都会知道，以前是通过一些固定接口设置渲染属性来调节渲染细节的。而现在，那种固定编程的模型基本已经弃用，我们可以通过Cg更灵活地控制渲染细节。
+
+Diffuse，即漫反射，可以想象成太阳光照射到某一个粗糙平面上时，该平面向四面八方都会反射光线，这些光线中的某些光线进入我们的眼睛，从而使我们看到了这个平面。一个基本的漫反射光照模型，需要包括以下几个部分：一个反射颜色（emissive color，可以理解成平面本身的颜色）, 一个环境光颜色（ambient color，可以理解成光源的颜色）, 以及计算来自所有光源的光线和。
+
+1. 创建一个基本的Surface Shader
+2. 向Surface Shader添加properties
+3. 在Surface Shader中使用properties
+4. 创建一个自定义的diffuse lighting model（漫反射光照模型）
+5. 创建一个Half Lambert lighting model（半兰伯特光照模型）
+6. 创建一个ramp texture来控制diffuse shading
+7. 使用2D ramp texture来创建一个假的BRDF（双向反射分布函数）
+
+下面的章节中，首先讲解完整的漫反射光照模型，然后会讲述使用2D texture来实现更复杂的漫反射模型的技巧。
+
+=== 下面给出了本章中主要实现的渲染效果： ===
+
+最基本的漫反射光照模型（上述前四个小节）：
+半兰伯特光照模型（第5节）：
+{{./1.png}}
+
+使用一维渐变图控制光照模型（第6节）：
+{{./2.png}}
+
+使用二维渐变图控制光照模型（第7节）：
+{{./3.png}}
+
+=== 结束语 ===
+
+呼呼，希望自己能坚持下来，也希望对大家有所帮助。

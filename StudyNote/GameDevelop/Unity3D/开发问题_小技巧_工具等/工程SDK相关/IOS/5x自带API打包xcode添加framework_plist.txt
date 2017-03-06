@@ -1,0 +1,79 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T14:04:49+08:00
+
+====== 5x自带API打包xcode添加framework plist ======
+Created 星期二 10 一月 2017
+
+转自：http://www.xuanyusong.com/archives/4026
+
+之前项目一直在用XUPorter 。今天无意间发现其实Unity已经帮我们实现了一套。如果你用的unity4.x开发，可以把它的代码放到你的工程里用。https://bitbucket.org/Unity-Technologies/xcodeapi 如果你用的是unity5.x开发，那么unity已经将这个API内置了http://docs.unity3d.com/ScriptReference/iOS.Xcode.PBXProject.html
+
+{{./1.png}}
+
+本来想自己写个例子试试， 谷歌了一下发现已经有了。 http://cflat-inc.hatenablog.com/entry/2015/01/05/074442
+
+using UnityEngine;
+using UnityEditor;
+using UnityEditor.Callbacks;
+using UnityEditor.iOS.Xcode; // ←さっきいれたXcodeAPI
+using System.Collections;
+using System.IO;
+ 
+public class XcodeProjectMod : MonoBehaviour
+{
+ 
+	// ちょっとしたユーティリティ関数（http://goo.gl/fzYig8%E3%82%92%E5%8F%82%E8%80%83）
+	internal static void CopyAndReplaceDirectory(string srcPath, string dstPath)
+	{
+		if (Directory.Exists(dstPath))
+			Directory.Delete(dstPath);
+		if (File.Exists(dstPath))
+			File.Delete(dstPath);
+ 
+		Directory.CreateDirectory(dstPath);
+ 
+		foreach (var file in Directory.GetFiles(srcPath))
+			File.Copy(file, Path.Combine(dstPath, Path.GetFileName(file)));
+ 
+		foreach (var dir in Directory.GetDirectories(srcPath))
+			CopyAndReplaceDirectory(dir, Path.Combine(dstPath, Path.GetFileName(dir)));
+	}
+ 
+	[PostProcessBuild]
+	public static void OnPostprocessBuild(BuildTarget buildTarget, string path)
+	{
+		if (buildTarget == BuildTarget.iPhone)
+		{
+			string projPath = PBXProject.GetPBXProjectPath(path);
+			PBXProject proj = new PBXProject();
+            
+			proj.ReadFromString(File.ReadAllText(projPath));
+			string target = proj.TargetGuidByName("Unity-iPhone");
+ 
+			// システムのフレームワークを追加
+			proj.AddFrameworkToProject(target, "AssetsLibrary.framework", false);
+            
+			// 自前のフレームワークを追加
+			CopyAndReplaceDirectory("Assets/Lib/mylib.framework", Path.Combine(path, "Frameworks/mylib.framework"));
+			proj.AddFileToBuild(target, proj.AddFile("Frameworks/mylib.framework", "Frameworks/mylib.framework", PBXSourceTree.Source));
+ 
+			// ファイルを追加
+			var fileName = "my_file.xml";
+			var filePath = Path.Combine("Assets/Lib", fileName);
+			File.Copy(filePath, Path.Combine(path, fileName));
+			proj.AddFileToBuild(target, proj.AddFile(fileName, fileName, PBXSourceTree.Source));
+ 
+			// Yosemiteでipaが書き出せないエラーに対応するための設定
+			proj.SetBuildProperty(target, "CODE_SIGN_RESOURCE_RULES_PATH", "$(SDKROOT)/ResourceRules.plist");
+ 
+			// フレームワークの検索パスを設定・追加
+			proj.SetBuildProperty(target, "FRAMEWORK_SEARCH_PATHS", "$(inherited)");
+			proj.AddBuildProperty(target, "FRAMEWORK_SEARCH_PATHS", "$(PROJECT_DIR)/Frameworks");
+            
+			// 書き出し
+			File.WriteAllText(projPath, proj.WriteToString());
+		}
+	}
+}
+

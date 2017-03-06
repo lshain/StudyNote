@@ -1,0 +1,10 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-07T17:40:47+08:00
+
+====== Graphics Overview ======
+Created 星期二 07 六月 2016
+
+===== Graphics Overview =====
+Understanding graphics is key to adding an element of depth to your game, this section covers the graphical features of Unity such as lighting and rendering.
+理解图像是丰富你的游戏元素的关键，这章节将讨论图像功能，比如灯光和渲染

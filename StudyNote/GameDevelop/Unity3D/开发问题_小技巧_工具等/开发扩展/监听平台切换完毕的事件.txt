@@ -1,0 +1,40 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T16:00:20+08:00
+
+====== 监听平台切换完毕的事件 ======
+Created 星期二 10 一月 2017
+
+今天有同事问我能不能获取平台切完换的事件，他想当平台切到Android或者切到IOS的时候用脚本在做一些事情。
+
+代码实现起来很简单。EditorUserBuildSettings.SwitchActiveBuildTarget可以用脚本来切换平台。。EditorUserBuildSettings.activeBuildTargetChanged 可以监听平台切换的事件。
+
+	[MenuItem("Tools/ActiveBuildTarget", false, 1)]
+	static public void ActiveBuildTarget()
+	{
+		EditorUserBuildSettings.activeBuildTargetChanged = delegate() {
+			if(EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android){
+				Debug.Log("DoSomeThings");
+			}
+		};
+		EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTarget.Android);
+	}
+
+如果你不想用脚本来切换平台，就想在Unity的Build Settings界面切换平台，那么可以这样。
+
+using UnityEngine;
+using UnityEditor;
+ 
+[InitializeOnLoad]
+public class Example
+{
+	static Example() {
+		EditorUserBuildSettings.activeBuildTargetChanged += OnChangePlatform;
+	}
+	static void OnChangePlatform() {
+		Debug.Log("Has Pro Licence : " + Application.HasProLicense());
+		Debug.Log("Platform : " + EditorUserBuildSettings.activeBuildTarget);
+	}
+}
+
+参考：http://narudesign.com/devlog/unity-editor-hook-switch-platform/

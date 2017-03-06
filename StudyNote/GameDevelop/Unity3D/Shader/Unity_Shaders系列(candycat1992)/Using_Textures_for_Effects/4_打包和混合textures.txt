@@ -1,0 +1,208 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-17T13:56:09+08:00
+
+====== 4 打包和混合textures ======
+Created 星期五 17 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/20792585
+
+Textures不仅仅可以用来存储颜色信息，还可以存储很多数据信息。这些数据信息可以分别存储到R、G、B、A四个部分，然后再打包成一张Texture，像下图这样：
+{{./1.png}}
+为什么这样做有好处呢？在我们的应用中，textures的数目将很大程度上影响应用的性能。因此，为了减少textures的数量，我们可以看看Shader中使用的那些图片可以合并成一张，以此来优化性能。
+任何灰度图都可以被打包进另一个新的texture的RGBA四个中的某一个chanel。这听起来不是很明白，没关系，这篇文章就会展示如何做到这点。
+
+一个常用的场景是，你想要混合多张textures到一个surface上。这在terrain Shaders（地形渲染）中很常见，这种时候你往往需要很好的将一张texture和另一张混合起来。
+这篇文章中将会告诉你，怎样完成一个由4张textures混合渲染而得的terrain Shader。
+
+开始工作
+1. 还是创建一个新的Shader文件，并为这个Shader创建一个新的Material，名字可以称为TextureBlending；
+2. 创建一个新的场景，以便来测试我们的Shader；
+3. 接下来，你需要4张用于混合的textures。它们可以是任何图片，但是为了得到一个效果较好的terrain Shader，建议你分别准备一张草地（grass）、泥土（dirt）、小石子（rocky dirt）、石头（rock）的texture。书的资源中包含了这样四张texture（Unity Shaders and Effects Cookbook/5084_Code/Unity assets/5084_02_UnityAssets/Textures目录下的Chapter02_Grass0103_2_S.jpg，Chapter02_RockSmooth0045_2_S.jpg，Chapter02_SandPebbles0027_1_S.jpg，Chapter02_SandPebbles0030_3_S.jpg）：
+{{./2.png}}
+4. 最后，也是奇妙所在，我们需要一张混合的texture（Unity Shaders and Effects Cookbook/5084_Code/Unity assets/5084_02_UnityAssets/Textures目录下的Chapter02_TerrainBlend_001.jpg），它是由多个灰度图混合而成的。它将会告诉我们以上四张texture在目标地形上是如何分布的：
+
+=== 实现 ===
+1. 首先，向Shader的Properties块中添加一些新的properties。我们需要5个sampler2D对象，也就是textures，以及两个颜色properties，和一个用于调整整体地形颜色的值。
+Properties {  
+	_MainTint ("Diffuse Tint", Color) = (1,1,1,1)  
+      
+	//Add the properties below so we can input all of our textures  
+	_ColorA ("Terrain Color A", Color) = (1,1,1,1)  
+	_ColorB ("Terrain Color B", Color) = (1,1,1,1)  
+	_RTexture ("Red Channel Texture", 2D) = ""{}  
+	_GTexture ("Green Channel Texture", 2D) = ""{}  
+	_BTexture ("Blue Channel Texture", 2D) = ""{}  
+	_ATexture ("Alpha Channel Texture", 2D) = ""{}  
+	_BlendTex ("Blend Texture", 2D) = ""{}  
+}
+
+2. 在SubShader中创建8个变量，分别对应Properties中的8个properties，以建立和它们之间的链接。
+CGPROGRAM  
+#pragma surface surf Lambert  
+  
+float4 _MainTint;  
+float4 _ColorA;  
+float4 _ColorB;  
+sampler2D _RTexture;  
+sampler2D _GTexture;  
+sampler2D _BTexture;  
+sampler2D _BlendTex;  
+sampler2D _ATexture;  
+
+3. 为了根据每一张不同的texture来改变其在地形上的tiling rates（平铺率，可以理解为地上某些区域草比较密集，某些地区石头比较多等），我们需要修改结构体。
+struct Input {  
+	float2 uv_RTexture;  
+	float2 uv_GTexture;  
+	float2 uv_BTexture;  
+	float2 uv_ATexture;  
+	float2 uv_BlendTex;  
+};  
+
+4. 在surf函数中，得到每张texture的信息，并分别存储在它们对应的变量中。
+//Get the pixel data from the blend texture  
+//we need a float 4 here because the texture   
+//will return R,G,B,and A or X,Y,Z, and W  
+float4 blendData = tex2D(_BlendTex, IN.uv_BlendTex);  
+  
+//Get the data from the textures we want to blend  
+float4 rTexData = tex2D(_RTexture, IN.uv_RTexture);  
+float4 gTexData = tex2D(_GTexture, IN.uv_GTexture);  
+float4 bTexData = tex2D(_BTexture, IN.uv_BTexture);  
+float4 aTexData = tex2D(_ATexture, IN.uv_ATexture);  
+
+5. 使用lerp函数将四张texture混合。lerp函数有三个参数，lerp(value : a, value : b, blend : c)。它从前两个参数中得到数据，并使用最后一个参数混合前两个值。
+//No we need to contruct a new RGBA value and add all   
+//the different blended texture back together  
+float4 finalColor;  
+finalColor = lerp(rTexData, gTexData, blendData.g);  
+finalColor = lerp(finalColor, bTexData, blendData.b);  
+finalColor = lerp(finalColor, aTexData, blendData.a);  
+finalColor.a = 1.0;  
+
+6. 最后，我们使用blending texture的R通道值混合两个颜色色调值，并将结果与之前的混合值相乘。
+//Add on our terrain tinting colors  
+float4 terrainLayers = lerp(_ColorA, _ColorB, blendData.r);  
+finalColor *= terrainLayers;  
+finalColor = saturate(finalColor);  
+      
+o.Albedo = finalColor.rgb * _MainTint.rgb;  
+o.Alpha = finalColor.a;  
+
+整体代码如下：
+Shader "Custom/TextureBlending" {  
+	Properties {  
+		_MainTint ("Diffuse Tint", Color) = (1,1,1,1)  
+          
+		//Add the properties below so we can input all of our textures  
+		_ColorA ("Terrain Color A", Color) = (1,1,1,1)  
+		_ColorB ("Terrain Color B", Color) = (1,1,1,1)  
+		_RTexture ("Red Channel Texture", 2D) = ""{}  
+		_GTexture ("Green Channel Texture", 2D) = ""{}  
+		_BTexture ("Blue Channel Texture", 2D) = ""{}  
+		_ATexture ("Alpha Channel Texture", 2D) = ""{}  
+		_BlendTex ("Blend Texture", 2D) = ""{}  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		float4 _MainTint;  
+		float4 _ColorA;  
+		float4 _ColorB;  
+		sampler2D _RTexture;  
+		sampler2D _GTexture;  
+		sampler2D _BTexture;  
+		sampler2D _BlendTex;  
+		sampler2D _ATexture;  
+  
+		struct Input {  
+			float2 uv_RTexture;  
+			float2 uv_GTexture;  
+			float2 uv_BTexture;  
+			float2 uv_ATexture;  
+			float2 uv_BlendTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			//Get the pixel data from the blend texture  
+			//we need a float 4 here because the texture   
+			//will return R,G,B,and A or X,Y,Z, and W  
+			float4 blendData = tex2D(_BlendTex, IN.uv_BlendTex);  
+              
+			//Get the data from the textures we want to blend  
+			float4 rTexData = tex2D(_RTexture, IN.uv_RTexture);  
+			float4 gTexData = tex2D(_GTexture, IN.uv_GTexture);  
+			float4 bTexData = tex2D(_BTexture, IN.uv_BTexture);  
+			float4 aTexData = tex2D(_ATexture, IN.uv_ATexture);  
+              
+			//No we need to contruct a new RGBA value and add all   
+			//the different blended texture back together  
+			float4 finalColor;  
+			finalColor = lerp(rTexData, gTexData, blendData.g);  
+			finalColor = lerp(finalColor, bTexData, blendData.b);  
+			finalColor = lerp(finalColor, aTexData, blendData.a);  
+			finalColor.a = 1.0;  
+              
+			//Add on our terrain tinting colors  
+			float4 terrainLayers = lerp(_ColorA, _ColorB, blendData.r);  
+			finalColor *= terrainLayers;  
+			finalColor = saturate(finalColor);  
+                  
+			o.Albedo = finalColor.rgb * _MainTint.rgb;  
+			o.Alpha = finalColor.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+我们新建一个地形，并把创建的Material赋给它后，可以看到以下效果：
+{{./3.png}}
+
+=== 解释 ===
+上面的代码看起来有点复杂，但实际上混合的实质非常简单。为了完成以上效果，我们使用了CGFX标准库中内置的lerp函数。该函数允许我们从参数一合参数二之间挑选一个值，并使用参数三作为混合程度。它的工作原理如下所示：
+{{./4.png}}
+
+例如，我们想要在1和2之间找到一个中间值，我们可以使用0.5作为第三个参数，那么它将会返回1.5。因为一张texture的四个通道RGBA值都是简单的float类型，取值范围在-到1，因此可以使用它们作为混合程度值，即lerp的第三个参数来完成我们混合texture的需要。
+在Shader中，我们仅从blend texture的四个通道中选择一个来控制每个像素颜色的混合结果。例如，我们从grass texture和dirt texture中提取颜色值，并使用blend texture对应的G通道值进行lerp运算。
+如果可视化上述计算，可以参见下图：
+{{./5.png}}
+
+Shader可以如此简单地使用blend texture的四个通道值，以及其他用于颜色的texture（如grass texture等），来创建出最后的混合而得的texture。这个最后的texture成为我们最终的地形颜色，并会和diffuse light（上述代码中的_MainTint变量）进行乘法运算，来得到最终效果。
+细心的话，你可能会好奇上述代码中的两个颜色值_ColorA和_ColorB的用途是什么。从代码里可以看出来我们使用了blend texture的R通道值用于混合这两个颜色值，并和之前4张texture的混合结果相乘，这两个颜色值混合的结果可以看成是该地形本身的颜色，例如有红土地、黄土地、黑土地之类的区别。
+
+=== 扩展——灰度图 ===
+最后，讲一下灰度图的原理，如果你对灰度图十分了解，那么就可以关闭这个网页了。
+
+当你把四张Textures按不同的顺序对RGBA赋值的话，就会得到不同的效果。
+
+例如，当Material的Inspector按照左边这样赋值后，会得到右面的地形效果。
+{{./6.png}}{{./7.png}}
+
+如果按照另一个顺序赋值，则会得到不同的效果。
+{{./8.png}}{{./9.png}}
+
+这里面的原因当然是因为在blend texture中不同的通道值不一样。我们的blend texture如下所示：
+{{./10.png}}
+
+正如灰度图的名字所示，灰度图中没有彩色只有灰色，即介于白色和黑色之间的颜色。那么RGBA四个通道的灰度图是如何得到最右边的彩色图的呢？
+简单说来，这四个通道分别代表了红、绿、蓝、和透明度四种颜色值的浓度。我们以R通道的灰度图，即最左边的灰度图为例。
+在R通道的灰度图中，越亮的部分，即颜色越白的部分，表示红色光在此处越亮，亮度级别越接近1（亮度范围在这里为0到1），表现为颜色越红，这可以从最右边的彩色图看出来（当然还会和蓝绿进行颜色混合得到最后彩色效果）。
+相反，越黑的地方表示红色越弱，亮度级别越接近0。
+
+为了方便记忆，我们可以记住下面四条原理：
+1. 通道中的纯白，代表了该色光在此处为最高亮度，亮度级别是1。
+2. 通道中的纯黑，代表了该色光在此处完全不发光，亮度级别是0。
+3. 介于纯黑纯白之间的灰度，代表了不同的发光程度，亮度级别介于0至1之间。
+4. 灰度中越偏白的部分，表示色光亮度值越高，越偏黑的部分则表示亮度值越低。
+
+用到我们的例子中，在进行lerp(value : a, value : b, blend : c)计算时，当我们使用R通道值作为第三个参数时，R通道灰度图中越亮的部分（值越接近1），在地形表现中越接近值b的结果。在上述代码中，使用R通道混合的是两个颜色值_ColorA和_ColorB。当我们取消其他的影响时，并设置两个颜色值左图所示时，我们可以预测R灰度图中越亮的部分对应到地形中则越接近白色（_ColorB），反之越暗的部分越接近红色（_ColorA），如右图所示：
+{{./11.png}}{{./12.png}}
+
+以此原理，对应到四个通道，混合就会得到最终的效果。
+
+最后，这篇教程里用到的textures是使用World Machine（有免费版，但是有限制）这个软件创建的。

@@ -1,0 +1,45 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T15:54:46+08:00
+
+====== 脚本设置图片格式后出现Not yet compressed ======
+Created 星期二 10 一月 2017
+
+最近在用ugui。把图片拖到指定文件夹下，我想修改一下图片的格式， 还有tag的名。如下图所示，图片变成了Not yet compressed.
+
+{{./1.png}}
+
+仔细检查了一下代码，发现原来自己方法用错了。要用OnPreprocessTexture 方法。
+
+void OnPostprocessTexture (Texture2D texture) {
+		TextureImporter textureImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+			if(textureImporter != null){
+				string AtlasName =  new System.IO.DirectoryInfo(System.IO.Path.GetDirectoryName(assetPath)).Name;
+				textureImporter.textureType = TextureImporterType.Sprite;
+				textureImporter.spriteImportMode = SpriteImportMode.Single;
+				textureImporter.spritePackingTag = AtlasName;
+				textureImporter.mipmapEnabled = false;
+			}
+}
+ 
+void OnPreprocessTexture () {
+}
+
+OnPostprocessTexture 是图片已经导入后调用。。 所以这时候在它不会再次压缩。
+
+而 OnPreprocessTexture 是图片导入前调用的。 所以这里设置了 图片格式 还有 tag 接着 unity就会自动压缩。
+
+还有一个问题 就是 图片导入unity以后， 我想移动它到别的目录中。。 此时OnPostprocessTexture 和 OnPreprocessTexture 都不会被调用。 可是我想改它的tag怎么办？
+
+	private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromPath)
+	{
+		foreach(string move in movedAssets){
+						//这里重新 import一下
+			AssetDatabase.ImportAsset(move);
+		}
+	}
+
+这样unity就会再次回调 OnPostprocessTexture 和 OnPreprocessTexture。
+
+OnPostprocessAllAssets 这个方法挺好的， 它在OnPostprocessTexture 和 OnPreprocessTexture后面调用， 可以用来整体处理 新导入的 删除的 移动的 从哪儿移动的 资源。。。
+

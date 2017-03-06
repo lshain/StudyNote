@@ -1,0 +1,68 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T17:19:42+08:00
+
+====== 1 开始学习搭建界面自适应屏幕 ======
+Created 星期二 05 四月 2016
+
+转自:http://www.xuanyusong.com/archives/3278
+
+如下图所示，我们先看Canvas，Render Mode一共有三种模式。
+
+1.Screen Space – overlay  此模式不需要UI摄像机，UI将永远出现在所有摄像机的最前面。我觉得overlay有问题，如果我想在UI前面放个东西就不行了，因为可能在UI前面放一个特效或者UI啥的。。
+
+2.Screen Space- Camera 此模式是我决定采取的，它需要提供一个UICamera 。这样就和NGUI的原理很像了，如果我想在UI前面加特效我可以在创建一个摄像机深度大于这个UICamera就行了。
+
+3.World Space 这个就是完全3D的UI，UGUI的例子大多都采用它，但是我觉得目前我还是用不到。
+
+{{./1.png}}
+如下图所示，在看Canvas Scaler。UGUI在处理自适应这块不需要我们自己在写算法了。
+
+UI Scale Mode :Scale With Screen Size 表示以宽度为标准缩放。。 因为我搭建界面的时候是960X640所以这里我写960X640。
+
+Screen Match Mode 选择 Expand 这个就是UGUI自己自适应屏幕的选项了。
+
+补充： Canvas Scaler 选择 Scale With Screen Size, Screen Match Mode 选择 Match Width Or Height，比例设为1，即只和高度进行适配；
+{{./2.png}}
+
+如下图所示，看看我的层次视图
+
+Main Camera 就是主摄像机，也就是透视摄像机，它的深度最小最先绘制。
+
+Canvas就是画布了，下面挂的UICamera 和 UIForward摄像机。
+
+UICamera 下面挂着所有的uGUI的UI控件，它的深度大于MainCamera。
+
+UIForward 就是前面我们说的有些东西要在UICamera的前面显示。注意Camera的的size ＝ 3.2 ，也就是960/640=3.2 。
+
+{{./3.png}}
+
+接着在UICamera下面挂UI控件吧。。这个比较简单就不细说了。。
+
+{{./4.png}}
+
+因为UI的自适应UGUI已经帮我们做了，那么我们要做的就是3DCamera的自适应。把下面这个脚本挂在Main Camera上即可。
+
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+public class CameraScale : MonoBehaviour {
+ 
+	void Start () {
+		int ManualWidth = 960;
+		int ManualHeight = 640;
+		int manualHeight;
+		if (System.Convert.ToSingle(Screen.height) / Screen.width > System.Convert.ToSingle(ManualHeight) / ManualWidth)
+			manualHeight = Mathf.RoundToInt(System.Convert.ToSingle(ManualWidth) / Screen.width * Screen.height);
+		else
+			manualHeight = ManualHeight;
+		Camera camera = GetComponent<Camera>();
+		float scale =System.Convert.ToSingle(manualHeight / 640f);
+		camera.fieldOfView*= scale;
+	}
+}
+
+记得增加一个UIForward 的层， 这样如果想在UI的前面添加特效 直接把它的特效的Layer设置成UIForward即可。
+
+{{./5.png}}
+

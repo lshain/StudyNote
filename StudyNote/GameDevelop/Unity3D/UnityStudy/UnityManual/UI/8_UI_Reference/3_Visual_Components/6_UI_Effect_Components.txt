@@ -1,0 +1,8 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-08T14:45:51+08:00
+
+====== 6 UI Effect Components ======
+Created 星期五 08 四月 2016
+
+The effects components allow adding simple effects to Text and Image graphics, such as shadow and outline.

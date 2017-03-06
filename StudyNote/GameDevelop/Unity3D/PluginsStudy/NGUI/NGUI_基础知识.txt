@@ -1,0 +1,210 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-03-27T23:29:55+08:00
+
+====== NGUI 基础知识 ======
+Created 星期日 27 三月 2016
+
+===== NGUI 基础知识 =====
+
+=== UIRoot ===
+管理 scalePixelPerfect : 像素匹配，图片不会被缩放，除非屏幕高度小于 Minimum Height 或者大于 maximum  Height，如果那样的话，就使用 FixedSize。
+FixedSize : 图片都会被等比缩放。
+FixedSizeOnMobile : 意思是PC用 PixelPerfect，手机用 FixedSize。
+
+=== Sprite的各种类型 ===
+Simple: 简单的填充，缩放
+Sliced: 九宫格，要设置好border
+Tiled: 重复平铺
+Filled: 各种填充，像技能的冷却360度旋转。
+
+=== Anchor ===
+None:
+Unified: 可以指定另外一个对象，以这个对象来对准我。分为 left, right, top, bottom。
+Advanced: 可以分别为 left, right, top, bottom 指定一个对象来对齐，也就是可以指定4个。
+
+=== Sprite像按钮一样响应 ===
+新建一个Sprite -> Add Component -> 脚本 -> Button -> 自定义鼠标上移、点击时的颜色 -> 自定义 onClick 事件，可以指定对象，调用某个对象脚本的某个函数等
+
+=== 如何拖动界面 ===
+UISprite
+
+1. 添加一个 Drag Object Component{{./1.png}}
+2. 添加 Box Collider，要填 Size (操作：scene中右击 Sprite -> Attach -> BoxCollider)
+3. Anchor 要设为 None，否则拖了之后又会回到原位
+
+=== 设置控件对齐 ===
+选中某个控件 -> Anchors -> Type 选中为 Unified -> 选择要对齐到哪个对象 -> 设置对齐。
+可以实现诸如左上角、中间等对齐方式。
+
+=== button上面放置一个 Label，鼠标放在 Label 上面，点不到 button ，为什么？ ===
+因为 Label 上面也有 BoxCollider，他会接收消息，他把按钮挡住了。解决办法：去掉 Label 的 BoxCollider 组件。
+
+=== 为什么自带的demo中按钮附加了2个 UI Button  组件？ ===
+注意， UI Button 有一个 Tween Target 选项，他表示要对哪个对象进行颜色过渡。（这个可能很有用）
+有2个 UI Button 组件是因为，1个是给 Button 的 Sprite 使用的，一个是给 Button 上面的 Label 使用的。
+
+=== （接上一条）为什么不给 Label 自己也添加一个 UI Button 组件？ ===
+看上一个问题，因为 Label 本身没有 Collider ，他无法接收事件！
+
+=== 对于一个 Button，你可以在他的 UI Button 组件中响应 OnClick 事件。那么如何响应 OnHover 事件？ ===
+答：添加 EventTrigger 组件。
+
+=== 如何让一个控件逐渐变大变小？ ===
+TweenHeight, TweenWidth
+
+=== 如何在按下键盘的时候等同于按下按钮？ ===
+UIKeyBinding
+
+=== NGUI是Bitmap字体，Unity是动态字体。 ===
+
+=== 在控件上面Attach一个Box Clider ，他才可以接收事件。 ===
+
+=== 如果在运行时查看鼠标下的UI控件是哪一个？ ===
+选中Camera -> 在 Inspector 中查看 UICamera 的属性，有一个 Debug ，给他打勾。
+然后运行程序，鼠标放在哪个控件上面，左上角就会显示那个控件的名字。
+但是，只有控件有 Box Collider 组件时，也就是他必须能接收消息，才可以选中他。
+
+=== UIWidget 是啥玩意儿 ===
+UIWidget 是不可见的矩形，他不画图，但是他可以接收事件。可以用于包含其他控件。他包含 Anchor。 Sprite，Label 都是从 Widget 继承的。
+
+=== Panel 深度的优先级比普通的 Widget 高！！ ===
+事件是先传给 Depth 较高的 Panel，如果这个 Panel 中的某个 Widget（ 不知道什么是 Widget？看上一条）挡住了鼠标，那么事件是不可能传递到 Depth 较低的 Panel 上去的。
+注意：Panel 本身是不会挡住鼠标的，只有摆在他上面的 Widget 会挡住。
+主要用途：Container，Scroll View 中使用。
+
+=== 当发生鼠标无法响应的bug时，如何知道鼠标事件是被谁挡住了？ ===
+选择 UIRoot 下的 Camera -> 定位到 UI Camera 组件 -> 勾选 Debug。再运行，屏幕上会显示鼠标下是哪个控件。
+
+=== 如何在编辑器中使用 UI Button 的 onClick 选项？ ===
+假设这个含有 UI Button 组件的对象叫做 btn，假设有一个界面叫 Bag，在 Bag 上面添加一个脚本，里面定义一个 public void Toggle() {}，必须要 public void 并且不能有参数，
+把 Bag 对象拖到 UI Button 组件的 onClick 选项中，然后你就可以选择 Toggle() 函数了。当按钮被点击后， Bag 的 Toggle() 函数就会被调用。
+假如 Toggle() 函数是这样实现的：
+
+public void Toggle()
+{
+	gameobject.setActive(!gameobject.activeSelf);
+}
+
+那么这个 btn 就实现了，开关包裹界面的功能。
+
+=== 关于 Box Collider 的注意事项 ===
+如果你是先选中一个对象，再右击->Attach->Box Collider，添加完后 Box Collider 的 Size 会自动填写成控件的大小；
+如果你是在 Inspector 中点击 "Add Component"按钮去添加 Box Collider 组件，Size 是不会自动填的！
+
+=== Grid控件的使用 ===
+1. 将对象做为 Grid 的子对象即可受 Grid 管理
+2. 在 Inspector 中，右击 Grid，选择 ‘Execute’，可以在编辑器中即看到控件按顺序排列好
+
+-------------------------------------------------------------------------------------------------------------------------------
+------------ Scroll View -------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------
+
+=== Scroll View 使用流程 ===
+
+NGUI，或者说 Unity，要为对象添加功能，都是同一种方法：那就是为对象添加组件，通常都是脚本，然后再对此组件设置一些参数就可以达到目的。
+要滚动 Scroll View，第1步：右击要被鼠标拖动的对象(当然这个对象必须要有 Box Collider 对象)，Attach -> Drag Scroll View。第2步：将 Scroll View 设置给 添加的那个组件做为参数即可。
+
+1. NGUI -> create -> Scroll View
+2. 将对象 btn1 做为 sv 的子对象，这些子对象就会在这个 sv 中间，出不去
+3. 为btn1添加拖动事件：btn1 -> attach -> box collider
+4. 拖动方向改为垂直：选sv -> inspector -> UIScroll View -> Movement -> Vertical
+5. 选sv -> 右击 -> create -> invisible widget ，命名为 dragBg，将其的 Depth 设为最大
+6. dragBg -> 右击 -> attach -> box collider
+7. dragBg -> 右击 -> attach -> drag scroll view
+8. 将 sv2 拖至 dragBg's Inspector 中的 scroll view
+9. 如果要让整个scrollView 内部都可以响应拖动，可能要新建另一个 panel。scroll View 本身也是带一个panel。
+
+=== 拖动： ===
+1、为对象添加脚本 Drag and Drop Item 脚本，你就可以拖着他走了。
+2、如果一个对象既有 Drag and Drop Item  和  Drag Scroll View，现在看来似乎前者要优先。
+3、为一个panel添加一个  drag and drop root，就可以将对象拖动经过他，不过这个panel的深度要比较高，也就是比较前面！！原理是什么？原理是，如果在scroll view中，拖东西出来的话，不会显示的，会被Clip。所以你需要有一个root，当一个具有 drag and drop item 的对象被拖动时，这个对象会自己将自己的parent设置为这个root，这样他才可以被拖出来。
+4、添加 grid 控件：NGUI -> create -> gird
+5、一个 grid 控件，实际上就是啥呢，就是一个 GameObject + UIGrid 脚本。一模一样的。
+6、创建一个sprite，添加组件 Drag and Drop Container，然后可以指定 Reparent target，可以把对象重新定义父结点。你可以把一个对象拖到container上，在drag and drop item 脚本中，当 Release 时，当前鼠标下的对象是 OBJ，会去搜索 OBJ 是否具有一个 Container 的父结点，如果有，就他了
+
+=== Localization ===
+可以处理多种语言，待研究。
+
+=== Font Maker ===
+制作 Bitmap Font
+
+=== NGUI 的事件是由 UICamera 发的 ===
+
+=== 自定义 Prefab 的缩略图 ===
+-----------------------------------
+创建一个子对象，名字叫做 NGUI Snapshot Point 30，30表示像素，可以改
+然后将这个子对象拖到你喜欢缩放的位置就可以了，3D的也可以！
+NGUI Snapshot Point 0.1 10 30
+0.1near 10 far 30 大小
+-----------------------------------
+更简单的方法：
+创建一个子对象，添加组件 snapshot，这个组件有一个 update snapshot 按钮，点它，他会自动更新snapshot，也会更新这个子对象的名字
+注意，他的tag是editor only
+运行时修改属性值
+运行时，可以动态修改 Inspector 中的值，可以立即见到变化，当退出运行时，值会恢复。
+
+=== 引用还是用标签查找？ ===
+在A脚本中想实例化B对象。是将B类型做为A脚本的变量，暴露在 Inspector 中，将 B 对象拖过去；还是在A脚本中通过标签查找？
+
+Layer & Sorting Layer
+
+Static Objects
+
+=== 什么是 Preset ===
+Inspector可以锁住，让他固定显示某个Object的信息
+Inspector可以改为debug模式，他可以显示private信息
+
+Lightmapping: 静态的光源，不是实时计算的
+
+Performance Issues and Limitations with Non-Uniform Scaling
+Tips for Working with Transforms
+Importance of Scale
+
+sprite renderer(2D) 和 mesh renderer(3D)
+Adding Random Gameplay Elements
+Default Values
+
+On some importers it is possible to specify default values for the field references or similar. To specify a default value open the object selector on the field you wish to set a default value for and select an value from the object selector.
+
+Once your texture has been imported, you should assign it to a Material. The material can then be applied to a mesh, Particle System, or GUI Texture. Using the Import Settings, it can also be converted to a Cubemap or Normalmap for different types of applications in the game. 
+
+Unity supports Resource Folders in the project to allow content to be supplied in the main game file yet not be loaded until requested. In Unity Pro, Unity iOS Advanced and Unity Android Advanced, you can also create Asset Bundles. 
+
+To build an Asset Bundle, you call BuildPipeline.BuildAssetBundle() from inside an Editor script. In the arguments, you specify an array of Objects to be included in the built file, along with some other options. This will build a file that you can later load dynamically in the runtime by usingAssetBundle.Load().
+
+ resources.assets
+
+	Materials: renderer.material and renderer.sharedMaterial
+	Meshes: meshFilter.mesh and meshFilter.sharedMesh
+	Physic Materials: collider.material and collider.sharedMaterial
+
+ 
+Special Folders and Script Compilation Order
+
+=== 脚本编译顺序： ===
+脚本编译一共分为4个阶段，一个脚本何时被编译取决于他所在的文件夹。
+后面编译的可以引用前面编译的。
+
+脚本编译顺序：
+阶段1、文件夹名为 Standard Assets, Pro Standard Assets and Plugins. 不管是不是顶层
+阶段2、文件夹名为 Standard Assets/Editor, Pro Standard Assets/Editor and Plugins/Editor. 不管是不是顶层
+阶段3、文件夹名不为 Editor，不管是不是顶层
+阶段4、其他地方的脚本
+
+顶层文件夹 WebPlayerTemplates 将不被编译，只有顶层才不被编译
+
+Execution Order of Event Functions
+
+预编译宏
+Platform Dependent Compilation
+Platform Custom Defines 预定义宏
+
+File -> Building Settings -> Player Setting -> Other Settings -> Scripting Define Symbols
+
+1 Mecanim {
+	Generic
+	Humanoid
+}
+
+2 Legacy (Unity 3.x)

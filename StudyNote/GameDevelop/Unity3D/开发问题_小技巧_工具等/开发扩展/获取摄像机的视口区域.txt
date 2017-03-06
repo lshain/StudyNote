@@ -1,0 +1,96 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-12T16:20:35+08:00
+
+====== 获取摄像机的视口区域 ======
+Created 星期四 12 一月 2017
+
+摄像机分为两种，一种是正交摄像机还有一种是透视摄像机。正交摄像机无论远近它的视口范围永远是固定的，但是透视摄像机是由原点向外扩散性发射，也就是距离越远它的视口区域也就越大。那么我们如何获取距离摄像机任意距离的视口区域呢？如下图所示，分别用红色和黄色两种颜色将计算出来的视口区域标记了出来。
+
+{{./1.png}}
+
+下面上代码，把如下脚本挂在摄像机上直接运行游戏即可看到。
+
+using UnityEngine;
+using System.Collections;
+ 
+public class CameraView : MonoBehaviour {
+	
+	
+	private Camera theCamera;
+ 
+		//距离摄像机8.5米 用黄色表示
+	public float upperDistance = 8.5f;
+	//距离摄像机12米 用红色表示
+	public float lowerDistance = 12.0f;
+	
+	private Transform tx;
+	
+	
+	void  Start (){
+		if ( !theCamera )
+		{
+			theCamera = Camera.main;
+		}
+		tx = theCamera.transform;
+	}
+	
+	
+	void  Update (){
+		FindUpperCorners();
+		FindLowerCorners();
+	}
+	
+	void  FindUpperCorners (){
+		Vector3[] corners = GetCorners( upperDistance );
+		
+		// for debugging
+		Debug.DrawLine( corners[0], corners[1], Color.yellow ); // UpperLeft -> UpperRight
+		Debug.DrawLine( corners[1], corners[3], Color.yellow ); // UpperRight -> LowerRight
+		Debug.DrawLine( corners[3], corners[2], Color.yellow ); // LowerRight -> LowerLeft
+		Debug.DrawLine( corners[2], corners[0], Color.yellow ); // LowerLeft -> UpperLeft
+	}
+	
+	void  FindLowerCorners (){
+		Vector3[] corners = GetCorners( lowerDistance );
+		
+		// for debugging
+		Debug.DrawLine( corners[0], corners[1], Color.red );
+		Debug.DrawLine( corners[1], corners[3], Color.red );
+		Debug.DrawLine( corners[3], corners[2], Color.red );
+		Debug.DrawLine( corners[2], corners[0], Color.red );
+	}
+	
+	Vector3[] GetCorners (  float distance   ){
+		Vector3[] corners = new Vector3[ 4 ];
+		
+		float halfFOV = ( theCamera.fieldOfView * 0.5f ) * Mathf.Deg2Rad;
+		float aspect = theCamera.aspect;
+		
+		float height = distance * Mathf.Tan( halfFOV );
+		float width = height * aspect;
+		
+		// UpperLeft
+		corners[ 0 ] = tx.position - ( tx.right * width );
+		corners[ 0 ] += tx.up * height;
+		corners[ 0 ] += tx.forward * distance;
+		
+		// UpperRight
+		corners[ 1 ] = tx.position + ( tx.right * width );
+		corners[ 1 ] += tx.up * height;
+		corners[ 1 ] += tx.forward * distance;
+		
+		// LowerLeft
+		corners[ 2 ] = tx.position - ( tx.right * width );
+		corners[ 2 ] -= tx.up * height;
+		corners[ 2 ] += tx.forward * distance;
+		
+		// LowerRight
+		corners[ 3 ] = tx.position + ( tx.right * width );
+		corners[ 3 ] -= tx.up * height;
+		corners[ 3 ] += tx.forward * distance;
+		
+		return corners;
+	}
+}
+

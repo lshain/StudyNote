@@ -1,0 +1,82 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:24:23+08:00
+
+====== 责任链模式 ======
+Created 星期一 15 八月 2016
+
+责任链模式：使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系。将这些对象连成一条链，并顺着这条链传递该请求，直到有一个对象处理它为止。以下是例子：
+
+//接口Request拥有getType与execute方法 
+public class RequestStudent implements Request{
+	public String getType() {
+		return "StudentRequest";
+	}
+		
+	public void execute() {
+		System.out.println("[RequestStudent] :\t Students request has been accepted!");
+	}
+}
+
+//handlerRequest是接口Handler 的方法
+public class HandlerStudent implements Handler {
+	private Handler nextSuccessor;
+	public HandlerStudent(Handler nextSuccessor){
+		this.nextSuccessor = nextSuccessor; 
+	}
+
+	public void handlerRequest(Request request) {
+		// 处理StudentRequest
+		if(request.getType().equalsIgnoreCase("StudentRequest")){
+			System.out.println("HandlerStudent begin to response StudentRequest;");
+			request.execute(); 
+		}
+		else{
+			//把请求传递给其他受理者
+			if(this.nextSuccessor!=null){
+				nextSuccessor.handlerRequest(request); 
+			}
+			else{
+				System.out.println("request[" + request.getType() + "] has not handler to deal!"); 
+			} 
+		} 
+	} 
+}
+
+//测试类 
+public class Test { 
+	public static void main(String[] args) {  
+		Handler handler = new HandlerStudent(new HandlerTeacher(new HandlerSchoolmaster(null)));
+	
+		Request studentReq = new RequestStudent();
+	
+		Request teacherReq = new RequestTeacher();
+	
+		Request schoolmasterReq = new RequestSchoolmaster();
+	
+		Request presidentReq = new RequestPresident();
+	
+		//传入student request
+		handler.handlerRequest(studentReq);
+			
+		System.out.println("=========");
+	
+		//传入teacher request
+	
+		handler.handlerRequest(teacherReq);
+	
+		System.out.println("=========");
+	
+		//传入schoolmaster request
+	
+		handler.handlerRequest(schoolmasterReq);
+	
+		System.out.println("=========");
+	
+		//传入president request
+	
+		handler.handlerRequest(presidentReq);
+
+		System.out.println("========="); 
+	} 
+}

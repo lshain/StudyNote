@@ -1,0 +1,72 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-11T12:45:23+08:00
+
+====== C API ======
+Created 星期四 11 二月 2016
+
+1. ===== 栈 =====
+
+
+=== 1.1 说明 ===
+
+lua与C语言操作都是通过栈来进行的。这个栈是抽象的栈，栈中每一个元素都能保存任何类型的LUA值。
+要获得一个lua中的一个值时（例如一个全局变量），只要调用一个Lua的Api函数，Lua就会将指定的值压入栈中。
+要将一个值传入Lua时，需要先将这个值压入栈，然后再调用Lua Api，Lua就会获取值并将此值从栈中弹出。
+几乎所有的lua api都会使用到栈，luaL_loadbuffer将它的结果（编译好的程序或错误消息）留在栈中;lua_pcall会调用栈中的一个函数,若发生错误则将错误信息留在栈中。
+
+=== 1.2 栈的索引与查询元素 ===
+
+以栈底为参考物：api使用“索引”来引用栈中的元素。第一个压入栈中的元素索引为1；第二个压入的元素索引为2依此类推。
+以栈顶为参考物：使用负数的索引来访问栈中的元素。此时，-1表示栈顶元素（最后一个压入的元素），-2表示栈顶下面的一个，依此类推。
+
+为了检查一个元素是否为特定类型，API提供了类似lua_is*的函数，例如lua_isnumber等。实际上lua_isnumber不会检查值是否为数字类别，而是检查能否转换为数字类型
+
+=== 1.3 其它栈操作 ===
+
+int lua_gettop(lua_State * L)
+返回栈中元素的个数，也可以说是栈顶元素的索引。
+
+int lua_settop(lua_State * L ,int index)
+将栈顶设置为一个指定的位置，即修改元素数量。如果之前的栈比新设置的要高，那么高出来的那些会被丢弃。反之，会向栈中压入nil来补足大小。有一个特例，调用lua_settop(L,0)能清空栈。也可以用负数索引来使用lua_settop。另外，API根据这个函数还提供了一个宏，用于从栈中弹出n个元素。
+#define lua_pop(L,n) lua_settop(L,-(n)-1)
+
+lua_pushvalue函数会将指定索引上的值 的副本压入栈。
+
+lua_remove删除指定索引上的元素，并将该位置之上的所有元素下移以填补空缺。
+
+lua_insert 会上移指定位置之上的所有元素以开辟一个槽的空间。然后将栈顶元素移动到该位置。
+
+lua_type(L,i) 获取栈上索引为i的元素的类型
+
+lua_typename(L,t) 获取栈上索引为i的元素的类型名称
+
+lua_replace弹出栈顶的值，并将该值 设置到指定索引上。但它不会移动任何东西。
+
+=== 1.4 Table操作 ===
+
+lua_gettable(L, i)
+lua_settable(L,i)
+
+lua_setfield(L, i, key)
+lua_getfield(L, i, key)
+
+lua_rawgeti(L,ti,key)
+lua_rawseti(L,ti,key)
+
+=== 1.5 全局变量操作 ===
+
+lua_getglobal(L, "name")
+lua_setglobal(L, "name")
+
+1.6 C闭包
+1.7 userdata, lightuserdata
+
+
+
+
+
+
+
+
+

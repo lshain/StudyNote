@@ -1,0 +1,10 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T17:17:09+08:00
+
+====== mesh网格合并 ======
+Created 星期一 09 一月 2017
+
+把Mesh合并的目的是什么？
+减少drawcall
+

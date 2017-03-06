@@ -1,0 +1,49 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T14:14:12+08:00
+
+====== Text字体花屏 ======
+Created 星期二 10 一月 2017
+
+转自：http://www.xuanyusong.com/archives/4259
+
+今天我同事说在老项目用的是unity4.7.2打包发布韩文和泰文，偶尔会出现字体花屏的问题，但是中文是好的。（我也不知道怎么解释，只能靠猜吧）我们用的TTF动态字体,Text每次赋值的时候Unity会生成贴图，以及保存每个字的UV信息，那么显示字体的时候根据UV信息去生成的贴图里取最终渲染在屏幕上。那么出现花屏很可能就是贴图更新了，而还在用老的UV取图，所以就取不到了。这个时候需要重新刷新一下Text理论上就正确。
+
+下面的代码挂在任意对象上。意思就是Font.textureRebuilt监听字体的贴图是否发生rebuild的事件。然后调用text.FontTextureChanged();重新刷新一下字体
+
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+ 
+public class UIFontDirty : MonoBehaviour
+{
+	bool isDirty = false;
+	Font dirtyFont = null;
+ 
+	void Awake()
+	{
+		Font.textureRebuilt += delegate(Font font1)
+		{
+			isDirty = true;
+			dirtyFont = font1;
+		};
+	}
+ 
+	void LateUpdate()
+	{
+		if (isDirty)
+		{
+			isDirty = false;
+			foreach (Text text in GameObject.FindObjectsOfType<Text>())
+			{
+				if (text.font == dirtyFont)
+				{
+					text.FontTextureChanged();
+				}
+			}
+			print("雨松MOMO textureRebuilt " + dirtyFont.name);
+			dirtyFont = null;
+		}
+	}
+}
+

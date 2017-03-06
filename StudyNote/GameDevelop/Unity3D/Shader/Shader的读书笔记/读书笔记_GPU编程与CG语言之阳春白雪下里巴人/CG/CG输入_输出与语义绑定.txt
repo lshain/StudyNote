@@ -1,0 +1,170 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-30T11:05:15+08:00
+
+====== CG输入 输出与语义绑定 ======
+Created 星期四 30 六月 2016
+
+应用程序（宿主程序）将图元信息（顶点位置、法向量、纹理坐标等）传递给顶点着色程序；顶点着色程序基于图元信息进行坐标空间转换，运算得到的数据传递到片段着色程序中；片段着色程序还可以接受从应用程序中传递的纹理信息，将这些信息综合起来计算每个片段的颜色值，最后将这些颜色值输送到帧缓冲区（或颜色缓冲区）中。
+
+这些是顶点着色程序和片段着色程序的基本功能和数据输入输出，实际上现在的着色程序已经可以接受多种数据类型，并灵活的进行各种算法的处理，如，可以接受光源信息（光源位置、强度等）、材质信息（反射系数、折射系数等）、运动控制信息（纹理投影矩阵、顶点运动矩阵等），可以在顶点程序中计算光线的折射方向，并传递到片段程序中进行光照计算。
+
+=== uniform ===
+Uniform 修辞一个参数，表示该参数的值由外部应用程序初始化并传入；例如在参数列表中写：
+
+uniform float brightness,
+uniform float4x4 modleWorldProject
+
+表示从“外部”传入一个float 类型数据，和一个4 阶矩阵。“外部”的含义通常是用OpenGL 或者DirectX 所编写的应用程序。
+
+使用Uniform 修辞的变量，除了数据来源不同外，与其他变量是完全一样的。
+
+需要注意的一点是：uniform 修辞的变量的值是从外部传入的，所以在Cg 程序（顶点程序和片段程序）中通常使用uniform 参数修辞函数形参，不容许声明一个用uniform 修辞的局部变量！否则编译时会出现错误提示信息：
+Error C5056:’uniform’not allowed on local variable
+
+=== const ===
+Cg 语言也提供const 修辞符，与C\C++中含义一样，被const 所修辞的变量在初始化之后不能再去改变它的值。下面的例子程序中有一个声明为const 的变量被赋值修改：
+
+const float a = 1.0;
+a = 2.0; //错误
+float b = a++; //错误
+
+编译时会出现错误提示信息：error C1026: assignment to const variable。
+
+const 修辞符与uniform 修辞符是相互独立的，对一个变量既可以单独使用const 或者uniform，也可以同时使用。
+
+=== 输入\输出修辞符（in\out\inout） ===
+Cg 语言中参数传递方式同样分为“值传递”和“引用传递”，但指针机制并不被GPU 硬件所支持，所以Cg 语言采用不同的语法修辞符来区别“值传递”和“引用传递”。这些修辞符分别为：
+
+1. in: 修辞一个形参只是用于输入，进入函数体时被初始化，且该形参值的改变不会影响实参值，这是典型的值传递方式。
+2. out: 修辞一个形参只是用于输出的，进入函数体时并没有被初始化，这种类型的形参一般是一个函数的运行结果；
+3. inout: 修辞一个形参既用于输入也用于输出，这是典型的引用传递。
+
+举例如下：
+void myFunction(out float x); //形参x，只是用于输出
+void myFunction(inout float x); //形参x，即用于输入时初始化，也用于输出数据
+void myFunction(in float x); //形参x，只是用于输入
+void myFunction(float x); /等价与 in float x，这种用法和C\C++完全一致
+
+也可以使用return 语句来代替out 修辞符的使用。输入\输出修辞符通常和语义词一起使用，表示顶点着色程序和片段着色程序的输入输出。
+
+===== 语义词（Semantic）与语义绑定（Binding Semantics） =====
+语义词，表示输入图元的数据含义（是位置信息，还是法向量信息），也表明这些图元数据存放的硬件资源（寄存器或者纹理缓冲区）。顶点着色程序和片段着色程序中Varying inputs 类型的输入，必须和一个语义词相绑定，这称之为绑定语义（binding semantics）。
+
+语义，只对两个处理阶段的输入\输出数据有意义，也就是说，语义只有在入口函数中才有效，在内部函数（一个阶段的内部处理函数，和下一个阶段没有数据传递关系）的无效，被忽略（Semantics attached to parameters to non-mainfunctions are ignored(261 页)）；
+语义，分为输入语义和输入语义；输入语义和输出语义是有区别的。虽然一些参数经常会使用相同的绑定语义词，例如：顶点Shader 的输入参数，POSITION指应用程序传入的顶点位置，而输出参数使用POSITION 语义就表示要反馈给硬件光栅器的裁剪空间位置，光栅器把POSITION 当成一个位置信息。虽然两个语义都命名为POSITION，但却对应着图形流水线上不同的寄存器。
+
+=== 顶点着色程序的输入语义 ===
+POSITION		
+BLENDWEIGHT
+NORMAL
+TANGENT
+BINORMAL
+PSIZE
+BLENDINDICES
+TEXCOORD0---TEXCOORD7
+
+语义词POSITION0 等价于POSITION，其他的语义词也有类似的等价关系。
+为了说明语义词的含义，举例如下：
+
+in float4 modelPos: POSITION
+表示该参数中的数据是的顶点位置坐标（通常位于模型空间），属于输入参数，语义词POSITION 是输入语义，如果在OpenGL 中则对应为接受应用程序传递的顶点数据的寄存器（图形硬件上）。
+
+in float4 modelNormal: NORMAL
+表示该参数中的数据是顶点法向量坐标（通常位于模型空间），属于输入参数，语义词NORMAL 是输入语义，如果在OpenGL 中则对应为接受应用程序传递的顶点法向量的寄存器（图形硬件上）。
+
+注意，上面的参数都被声明为四元向量，通常我们在应用程序涉及的顶点位置和法向量都是三元向量，至于为什么要将三元向量便为四元向量，又称齐次坐标，具体请看附录A。顶点位置坐标传入顶点着色程序中转化为四元向量，最后一元数据为1，而顶点法向量传入顶点着色程序中转化为四元向量，最后一元数据为0。
+
+=== 顶点着色程序的输出语义 ===
+顶点程序的输出数据被传入到片断程序中，所以顶点着色程序的输出语义词，通常也是片段程序的输入语义词，不过语义词POSITION除外。
+
+下面这些语义词适用于所有的Cg vertex profiles作为输出语义和Cg fragmentprofiles的输入语义：
+POSITION
+PSIZE
+FOG
+COLOR0-COLOR1
+TEXCOORD0-TEXCOORD7。
+
+顶点着色程序必须声明一个输出变量，并绑定POSITION语义词，该变量中的数据将被用于，且只被用于光栅化！ 如果没有声明一个绑定POSITION语义词的输出变量，编译时会提示错误信息：
+error C6014：Required output ‘POSITION’ not written.
+
+为了保持顶点程序输出语义和片段程序输入语义的一致性，通常使用相同的struct类型数据作为两者之间的传递，这是一种非常方便的写法，推荐使用。例如：
+struct VertexIn
+{
+	float4 position : POSITION;
+	float4 normal : NORMAL;
+};
+
+struct VertexScreen
+{
+	float4 oPosition : POSITION;
+	float4 objectPos : TEXCOORD0;
+	float4 objectNormal : TEXCOORD1;
+};
+
+注意：当使用struct结构中的成员变量绑定语义时，需要注意到顶点着色程序中使用的POSITION语义词，是不会被片段程序所使用的。
+如果需要从顶点着色程序向片段程序传递数据，例如顶点投影坐标、光照信息等，则可以声明另外的参数，绑定到TEXCOORD系列的语义词进行数据传递，实际上TEXCOORD系列的语义词通常都被用于从顶点程序向片段程序之间传递数据
+
+当然，你也可以选择不使用struct结构，而直接在函数形参中进行语义绑定。无论使用何种方式，都要记住vertex program中的绑定语义（POSITION除外）的输出形参中的数据会传递到fragment program中绑定相同语义的输入形参中。
+
+=== 片段着色程序的输出语义 ===
+片段着色程序的输出语义词较少，通常是COLOR。这是因为片段着色程序运行完毕后，就基本到了GPU流水线的末端了。 片段程序必须声明一个out向量（三元或四元），绑定语义词COLOR，这个值将被用作该片断的最终颜色值。
+例如：
+void main_f(out float4 color : COLOR)
+{
+	color.xyz = float3(1.0,1.0,1.0);
+	color.w = 1.0;
+}
+
+一些fragment profile支持输出语义词DEPTH，与它绑定的输出变量会设置片断的深度值；还有一些支持额外的颜色输出，可以用于多渲染目标（multiplerender targets , MRTs）。
+
+=== 语义绑定方法 ===
+入口函数输入\输出数据的绑定语义有 4 四种方法
+
+1. 绑定语义放在函数的参数列表的参数声明后面：
+[const] [in | out | inout]<type><identifier> [:<binding-semantic>][=<initializer>]
+
+其中，
+const 作为可选项，修辞形参数据；
+in、out、inout 作为可选项，说明数据的调用方式；
+type 是必选项，声明数据的类型；
+identifier 是必选项，形参变量名；
+一个冒号“：”加上一个绑定语义，是可选项；
+最后是初始化参数，是可选项。
+
+如下代码所示。形参列表中的参数一、参数二绑定到输入语义；参数三、参数四绑定到输出语义；尽管参数一和参数3 的绑定语义词一样，但前者是输入语义，后者是输出语义，所以这两个参数数据所对应的硬件位置是不一样的。
+void mian_v(float4 position_obj : POSITION,
+float3 normal_obj : NORMAL,
+out float4 oPosition : POSITION,
+out float4 oColor : COLOR,
+uniform float4x4 modelViewProj)
+{
+	………………
+}
+
+2. 绑定语义可以放在结构体（struct）的成员变量后面：
+struct <struct-tag>
+{
+	<type><identifier> [:<binding-semantic >];
+};
+
+3. 绑定语义词可以放在函数声明的后面，其形式为：
+<type> <identifier> (<parameter-list>) [:<binding-semantic]
+{
+	<body>
+}
+如下代码所示，顶点入口函数的声明后带有“COLOR”语义词，表示该函
+数需要反馈一个颜色值，所以函数的返回类型为float4，函数体也必须以return
+语句结束。
+float4 main_v(float4 position: POSITION, out float4 oposition : POSITION, uniform float4x4 modelViewProj):COLOR
+{
+	oposition = mul(modelViewProj,position);
+	float4 ocolor = float4(1.0,0,0,0);
+	return ocolor;
+}
+
+4. 最后一种语义绑定的方法是，将绑定语义词放在全局非静态变量的声明后面。其形式为：
+<type> <identifier> [:<binding-semantic>][=<initializer>];
+
+这种形式的结构很不紧凑，也不利于代码的维护和阅读，所以并不常见，不建议使用。
+

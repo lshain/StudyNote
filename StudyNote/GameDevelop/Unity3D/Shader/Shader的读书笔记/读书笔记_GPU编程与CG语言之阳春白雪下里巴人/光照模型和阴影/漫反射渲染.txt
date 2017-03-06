@@ -1,0 +1,92 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-07-14T15:22:35+08:00
+
+====== 漫反射渲染 ======
+Created 星期四 14 七月 2016
+
+===== Lambert 模型 =====
+
+=== 漫反射光照模型的顶点着色代码如下所示： ===
+void main_v( float4 position : POSITION, 
+		   float4 normal : NORMAL,
+		   out float4 oPosition : POSITION,
+		   out float4 color : COLOR,
+		   uniform float4x4 modelViewProj,
+		   uniform float4x4 worldMatrix,
+		   uniform float4x4 worldMatrix_IT,
+		   uniform float3 globalAmbient,
+		   uniform float3 lightPosition,
+		   uniform float3 lightColor,
+		   uniform float3 Kd )
+{
+	oPosition = mul(modelViewProj, position);
+	
+	float3 worldPos = mul(worldMatrix, position).xyz;
+	float3 N = mul(worldMatrix_IT, normal).xyz;
+	N = normalize(N);
+	
+	//计算入射光方向
+	float3 L = lightPosition - worldPos;
+	L = normalize(L);
+	
+	//计算方向光漫反射光强
+	float3 diffuseColor = Kd*lightColor*max(dot(N, L), 0);
+	
+	//计算环境光漫反射光强
+	float3 ambientColor = Kd*globalAmbient;
+	
+	color.xyz = diffuseColor+ambientColor;
+	color.w = 1;
+}
+
+{{./1.png}}
+漫反射光照模型渲染效果
+
+下面给出使用结构体的代码形式：
+
+=== 漫反射光照模型顶点着色程序（使用结构体） ===
+struct VertexIn
+{
+	float4 position : POSITION;
+	float4 normal : NORMAL;
+};
+
+struct VertexScreen
+{
+	float4 oPosition : POSITION;
+	float4 color : COLOR;
+};
+
+void main_v( VertexIn posIn,
+		   out VertexScreen posOut,
+		   uniform float4x4 modelViewProj,
+		   uniform float4x4 worldMatrix,
+		   uniform float4x4 worldMatrix_IT,
+		   uniform float3 globalAmbient,
+		   uniform float3 lightPosition,
+		   uniform float3 lightColor,
+		   uniform float3 Kd )
+{
+	posOut.oPosition = mul(modelViewProj, posIn.position);
+	
+	float3 worldPos = mul(worldMatrix, posIn.position).xyz;
+	float3 N = mul(worldMatrix_IT, posIn.normal).xyz;
+	N = normalize(N);
+	
+	//计算入射光方向
+	float3 L = lightPosition - worldPos;
+	L = normalize(L);
+	
+	//计算方向光漫反射光强
+	float3 diffuseColor = Kd*lightColor*max(dot(N, L), 0);
+	
+	//计算环境光漫反射光强
+	float3 ambientColor = Kd*globalAmbient;
+	
+	posOut.color.xyz = diffuseColor+ambientColor;
+	posOut.color.w = 1;
+}
+
+
+

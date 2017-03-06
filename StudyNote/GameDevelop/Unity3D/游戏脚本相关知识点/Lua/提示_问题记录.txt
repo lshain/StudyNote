@@ -1,0 +1,22 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-11T13:23:58+08:00
+
+====== 提示 问题记录 ======
+Created 星期四 11 二月 2016
+
+lua tips:
+表达式a and b的返回值不是true或false，而是a/b当中非真的值，而表示a or b返回的是a/b当中为真的那个。  
+三元表达式 d = a and b or c 当 a为true b为 nil时， 这个表达式 无效 会返还c。
+for 循环的 3个表达式 只会计算 一次， 且 是在 for 循环开始之前计算。
+
+
+
+lua coroutine
+local co = coroutine.create( function( a, b ) 
+	...
+	...
+	coroutine.yield()
+end ) 
+
+local status = coroutine.resume(co)

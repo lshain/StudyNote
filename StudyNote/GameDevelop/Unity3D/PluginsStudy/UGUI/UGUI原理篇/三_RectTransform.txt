@@ -1,0 +1,93 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T14:10:44+08:00
+
+====== 三 RectTransform ======
+Created 星期三 11 一月 2017
+
+转自：http://k79k06k02k.com/blog/334/unity/unity-ugui-%E5%8E%9F%E7%90%86%E7%AF%87%E4%B8%89%EF%BC%9Arecttransform
+
+RectTransform
+{{~/Desktop/111/1.png}}
+RectTransform 是 Transform 的 2D 對應 Component，Transform 表示單個點，RectTransform 表示一個2D矩形(UI空間)，如果父子物體都有RectTransform，那麼子物體可以指定在父物體矩形中的位置與大小，簡單來說RectTransform 就是定義UI元素的位置、旋轉、大小
+
+Anchor (錨點)
+物體的錨點(對齊點)，如果父子都有 RectTransform 情況下，子物體可以依據 Anchor 對齊到父物體，又分為 Min 與 Max 位置，如下圖物體四周有4個三角形
+
+Anchor Min 	物體左下角對齊點，(0,0) 對應到父物體中的最左下位置，(1,1) 對應到父物體中的最右上位置
+Anchor Max 	物體右上角對齊點
+
+{{~/Desktop/111/3.png}}
+
+Anchor位置座標與關係
+當我們使用滑鼠點選4個三角形調整Anchor時，會貼心的出現比例訊息，此比例是子物體在父物體中的縮放比例
+{{~/Desktop/111/4.png}}
+
+當Canvas 下有1張圖 Anchor Min 與 Anchor Max 皆為 (0.5 , 0.5)，如下左圖部分
+如果將Anchor Min調整為(0.3, 0.5) ，Anchor Max調整為 (0.5, 0.7)，如下右圖部分
+注意看 左圖 Pos X、Pos Y、Width、Height ，會改變為 右圖 Left、Top、Right、Buttom
+
+{{~/Desktop/111/5.png}}
+因為當 Anchor 在同一點時，顯示的是物體的座標與大小，當 Anchor 不在同一點時(此時會形成矩形)，顯示的會是 Anchor 矩形填充空間，如下圖，(P.S.在我們移動物體時會貼心的顯示目前與 Anchor 距離關係)
+
+{{~/Desktop/111/6.png}}
+
+上面看完一定還是不了解怎麼運作，讓我們來透過實例了解一下
+Canvas 下有5張圖，Anchor Min 與 Anchor Max 皆為 (0.5 , 0.5)，物體的位置會對齊到父物體的中心，當父物體大小改變時，情形如下
+{{./1.gif}}
+
+Canvas 下有1張圖，Anchor Min 與 Anchor Max 皆為 (0.0, 1.0)，物體的位置會對齊到父物體的左上角，當父物體大小改變時，情形如下，物體會固定在左上角
+{{./2.gif}}
+
+Canvas 下有1張圖，Anchor Min 為 (0.0, 0.0)， Anchor Max 為 (1.0, 0.0)，物體的位置會對齊到父物體的左下角與右下角，當父物體大小改變時，情形如下，物體寬度會隨著父物體改變
+{{./3.gif}}
+
+由上面的幾個實例可以知道，子物體會依據所設定 Anchor 對齊到父物體，當父物體大小改變時，透過 Anchor 更新子物體，上面有提到當我們點選4個三角形調整Anchor時，畫面會貼心的出現比例訊息，相信有經驗的人一定知道該比例的用意，此比例就是子物體在父物體中的縮放比例，以下舉例
+
+原來數值
+Parent Size (400, 350)
+Image Size (120, 105)
+Anchor Min 為 (0.2, 0.5)， Anchor Max 為 (0.5, 0.8)
+{{./7.png}}
+
+Parent Size 一半時數值
+Parent Size (200, 175)
+Image Size (60, 52.5)
+Image Size Width  = 400 * 50% * 30% = 60
+Image Size Height = 350 * 50% * 30% = 52.5
+Anchor Min 為 (0.2, 0.5)， Anchor Max 為 (0.5, 0.8)
+經由上面可以得知父物體在縮小2倍後，父物體透過子物體的 Anchor 比例更新子物體，透過這種方式，我們可以達到不同螢幕解析度自動改變UI大小與位置
+
+== Anchor Presets ==
+{{./8.png}}
+點選 RectTransform 左上角，可以開啟Anchor Presets 工具，這邊列出了常用的 Anchor ，可以快速套用，按住Shift 可以連同 Pivot 一起改變，按住 Alt 可以連同位置一起改變
+
+=== Pivot (支點) ===
+物體自身的支點，影響物體的旋轉、縮放、位置，改變 UI Pivot 必須先開啟控制面板的 Pivot 按鈕，如下圖
+{{./9.png}}
+
+當 Pivot (0.5, 0.5)
+{{./4.gif}}
+
+當 Pivot (0, 1)
+{{./5.gif}}
+
+Blue Print Mode(藍圖模式) 、 Raw Edit Mode(原始编辑模式)
+忽略了物體的 Local Rotation 和 Local Scale，方便以原來的旋轉與大小調整物體
+{{./10.png}}
+
+Raw Edit Mode (原始编辑模式)
+在 Inspector 中調整 Pivot 和 Anchor 時，物體會維持目前的位置與大小(Inspector 中數值部分)，調整情形如下，請注意數值部分
+Inspector 中調整  Pivot
+{{./6.gif}}
+
+Inspector 中調整  Anchor
+{{./7.gif}}
+
+參考資料
+■ Unity – Manual: Basic Layout
+http://docs.unity3d.com/Manual/UIBasicLayout.html
+■ UnityのuGUIのレイアウト調整機能について解説してみる（RectTransform入門）
+http://tsubakit1.hateblo.jp/entry/2014/12/19/033946
+
+

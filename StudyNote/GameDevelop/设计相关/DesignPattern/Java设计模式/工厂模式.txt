@@ -1,0 +1,53 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T22:22:03+08:00
+
+====== 工厂模式 ======
+Created 星期一 15 八月 2016
+
+转自：http://www.cnblogs.com/lee0oo0/archive/2012/05/18/2508367.html
+
+工厂模式：创建实例是在一个工厂类当中创建，例子如下；
+
+1. 首先是有一个接口 
+
+public interface Car { 
+	public void model(); 
+}
+
+2. 创建一个类实现这个接口
+
+public class CarA implements Car{ 
+	public void model() { 
+		System.out.println("这是一辆高级四轮车"); 
+	} 
+} 
+
+3. 创建另外一个类实现这个接口 
+
+public class CarB implements Car{ 
+	public void model() { 
+		System.out.println("这是一辆低配置三轮车"); 
+	}
+ } 
+
+4. 创建工厂类
+
+public class Factory {  
+	private static Car car;
+	private static Car createFactory(String A){
+		if(A.equals("高级")){
+			car = new CarA(); 
+	}
+	else if(A.equals("低级")){
+		car = new CarB(); }
+		return car; 
+	}
+
+	public static void main(String []args){
+		Factory.createFactory("高级").model();
+		Factory.createFactory("低级").model(); 
+	} 
+}
+
+

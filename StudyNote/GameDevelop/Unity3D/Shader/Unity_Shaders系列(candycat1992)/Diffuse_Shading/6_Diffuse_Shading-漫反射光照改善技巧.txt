@@ -1,0 +1,177 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T17:30:36+08:00
+
+====== 6 Diffuse Shading-漫反射光照改善技巧 ======
+Created 星期日 12 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17453657
+
+上一篇中，我们演示了如何使用自定义的光照模型进行渲染。这一次，我们将进一步看一下怎样对它做一些变化来得到更好的效果！
+我们会列出两种方法：使用Half Lambert lighting model（半兰伯特光照模型）和使用一个ramp texture来控制diffuse shading。
+
+=== 准备工作 ===
+
+同样，我们需要你已经做好了上一篇文章中的内容，并得到了如下shader：
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+		CGPROGRAM  
+		#pragma surface surf BasicDiffuse  
+          
+		//We need to declare the properties variable type inside of the  
+		//CGPROGRAM so we can access its value from the properties block.  
+		float4 _EmissiveColor;  
+		float4 _AmbientColor;  
+		float _MySliderValue;  
+          
+		struct Input  
+		{  
+			float2 uv_MainTex;  
+		};  
+          
+		void surf (Input IN, inout SurfaceOutput o)  
+		{  
+			//We can then use the properties values in our shader  
+			float4 c;  
+			c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+          
+		inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+		{  
+			float difLight = max(0, dot (s.Normal, lightDir));  
+			float4 col;  
+			col.rgb = s.Albedo * _LightColor0.rgb * (difLight * atten * 2);  
+			col.a = s.Alpha;  
+			return col;  
+		}  
+          
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+=== 创建一个Half Lambert lighting model（半兰伯特光照模型） ===
+
+如果你看过之前的文章中，相信还记得Lambert这个名字。没错，它就是Unity默认的diffuse lighting model。简单来说，Lambert定律认为，在平面某点漫反射光的光强与该反射点的法向量和入射光角度的余弦值成正比（即我们之前使用dot函数得到的结果）。Half Lambert最初是由Valve（游戏半条命2使用的引擎即是其开发的）提出来，用于提高物体在一些光线无法照射到的区域的亮度的。简单说来，它提高了漫反射光照的亮度，使得漫反射光线可以看起来照射到一个物体的各个表面。而Half Lambert最初也是被用于游戏半条命的画面渲染，为了防止某个物体的背光面丢失形状并且显得太过平面化。这个技术是完全没有基于任何物理原理的，而仅仅是一种感性的视觉增强（参考[[https://developer.valvesoftware.com/wiki/Half_Lambert|这里]]）。
+好啦，说了这么多还是要演示一下，代码非常简单！我们只需要稍微更改上述的LightingBasicDiffuse函数：
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+{  
+			float difLight = max(0, dot (s.Normal, lightDir));  
+			// Add this line  
+			float hLambert = difLight * 0.5 + 0.5;  
+              
+			float4 col;  
+			// Modify this line  
+			col.rgb = s.Albedo * _LightColor0.rgb * (hLambert * atten * 2);  
+			col.a = s.Alpha;  
+			return col;  
+}  
+
+由代码可以看出，我们定义了一个新的变量hLambert来替换difLight用于计算某点的颜色值。difLight的范围是0.0-1.0，而通过hLambert，我们将结果由0.0-1.0映射到了0.5-1.0，从而达到了增加亮度的目的。下图显示了这一变化：
+
+{{~/Desktop/1111/1.png}}
+
+我们可以通过对比来看一下Lambert和Half Lambert的渲染区别（分别对应左图和右图）：
+{{~/Desktop/1111/2.png}}
+{{~/Desktop/1111/3.png}}
+
+=== 创建一个ramp texture来控制diffuse shading ===
+下面介绍另一种简单实用的方法——使用一张ramp texture（渐变图）来控制漫反射光照的颜色。这允许你着重强调surface的颜色而减弱漫反射光线或者其他更高级光线的影响。 可以在很多卡通风格的游戏中看到这种技术，通常在这些情况下你需要一个更加艺术而非写实风格的画面，并且不需要很多的真实物理模拟的光照模型。
+
+这个技术在Team Fortress 2（军团要塞2）中流行起来，这个技术也是由Valve提出来用于渲染他们的游戏角色的。他们发表了一个非常有名的论文，强烈建议你应该读一下它！[[http://www.valvesoftware.com/publications/2007/NPAR07_IllustrativeRenderingInTeamFortress2.pdf|这篇论文]]讲解了军团要塞2中使用的光照和渲染技术。
+
+上代码！
+我们重新修改LightingBasicDiffuse函数，增加一个新的变量ramp：
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+{  
+	float difLight = max(0, dot (s.Normal, lightDir));  
+	float hLambert = difLight * 0.5 + 0.5;  
+	float3 ramp = tex2D(_RampTex, float2(hLambert)).rgb;  
+      
+	float4 col;  
+	col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+	col.a = s.Alpha;  
+	return col;  
+}
+
+其中，我们还需要一张texture，即_RampTex。即之前说到的渐变图。回忆一下，为了能够在Inspector中拖拽一个texture，并在shader中使用需要怎么做？首先，我们需要在Properties块中声明它，然后在SubShader中声明一个相同名字的变量，并制定它的类型，之后就可以在函数中访问它啦！忘记的请翻看之前的几篇文章。完整的代码如下：
+
+Shader "Custom/RampDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+		// Add this line  
+		_RampTex ("Ramp Texture", 2D) = "white"{}  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf BasicDiffuse  
+          
+		//We need to declare the properties variable type inside of the  
+		//CGPROGRAM so we can access its value from the properties block.  
+		float4 _EmissiveColor;  
+		float4 _AmbientColor;  
+		float _MySliderValue;  
+		// Add this line  
+		sampler2D _RampTex;  
+          
+		struct Input  
+		{  
+			float2 uv_MainTex;  
+		};  
+          
+		void surf (Input IN, inout SurfaceOutput o)  
+		{  
+			//We can then use the properties values in our shader  
+			float4 c;  
+			c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+          
+		inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+		{  
+			float difLight = max(0, dot (s.Normal, lightDir));  
+			float hLambert = difLight * 0.5 + 0.5;  
+			// Add this line  
+			float3 ramp = tex2D(_RampTex, float2(hLambert)).rgb;  
+              
+			float4 col;  
+			// Modify this line  
+			col.rgb = s.Albedo * _LightColor0.rgb * (ramp);  
+			col.a = s.Alpha;  
+			return col;  
+		}  
+          
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+使用的ramp texture（渐变图）如下：
+{{~/Desktop/1111/4.png}}
+
+其中最重要的代码只有一行：
+float3 ramp = tex2D(_RampTex, float2(hLambert)).rgb;  
+
+这行代码返回一个rgb值。tex2D函数接受两个参数：第一个参数是操作的texture，第二个参数是需要采样的UV坐标。这里，我们并不像使用一个vertex来代表一个UV坐标进行采样，而仅仅想使用一个漫反射浮点值（即hLambert）来映射到渐变图上的某一个颜色值。最后得到的结果便是，我们将会根据计算得到的Half Lambert光照值来决定光线照射到一个物体表面的颜色变化。
+
+我们再来对比看一下Half Lambert和添加了ramp texture控制后的渲染区别（分别对应左图和右图）：
+{{~/Desktop/1111/5.png}}
+{{~/Desktop/1111/6.png}}
+
+=== 结束语 ===
+Diffuse Shader还有最后一篇文章就会阶段性结束了。通过这一些文章，相信已经对Unity Shaders有了一个大致的了解。呼，作为一个初学者，现在的渲染结果可能看起来还狠简陋，但是一口气吃个胖子是不现实的！呼呼，加油！相信学习这些对游戏渲染还是很有帮助的，毕竟每一个出色游戏几乎全部都使用了自己编写的shader，希望自己以后也可以有所创新，可以为游戏增光添彩。

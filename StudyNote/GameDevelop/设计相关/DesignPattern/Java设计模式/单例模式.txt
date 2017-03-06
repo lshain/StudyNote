@@ -1,0 +1,35 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T22:49:02+08:00
+
+====== 单例模式 ======
+Created 星期一 15 八月 2016
+
+单例模式，固然思意就是只能够创建一个实例，一下是两种单例模式的例子：
+
+第一种：由于构造方法，与创建实例的对象都设置为private，表明外部不能创建，只能通过getInstance()方法得到
+
+public class Singleton1 { 
+	private Singleton1(){} 
+	
+	private static Singleton1 s1 = new Singleton1(); 
+	
+	public Singleton1 getInstance(){ 
+		return s1; 
+	} 
+} 
+
+第二种：这一方法创建实例是在方法当中创建，首先判断这是实例是否为空
+
+class Singleton1{  
+	private Singleton1(){}
+	private static Singleton1 s2 = null;
+	public static synchronized Singleton1 getInstance(){
+		if(s2==null){
+			s2 = new Singleton1(); 
+		}
+
+		return s2; 
+	} 
+}
+

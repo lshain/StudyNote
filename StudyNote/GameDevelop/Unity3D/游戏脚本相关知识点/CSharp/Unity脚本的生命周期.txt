@@ -1,0 +1,11 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T17:29:44+08:00
+
+====== Unity脚本的生命周期 ======
+Created 星期三 11 一月 2017
+
+{{./1.jpg}}
+
+尤其起yield  www  协同 这部分看了这张图彻底的懂了。。。
+http://docs.unity3d.com/Manual/ExecutionOrder.html

@@ -1,0 +1,52 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-03T16:19:54+08:00
+
+====== 触屏操作数据 ======
+Created 星期二 03 一月 2017
+
+转自：http://www.narkii.com/club/thread-327620-1.html
+
+在Unity里获得触屏操作数据的方法主要是：
+
+Input类的touches结构,记录了上一帧所有触点的状态； 
+Input类的touchCount变量，当前触点数； 
+Input类的GetTouch（int  index） ；函数，获得当前帧第index个触点的所有信息，返回一个包含这些信息的Touch类型数据。
+
+Touch结构中有一状态项phase，记录了当前帧相对应触点作用在屏幕上的状态，用它和预定义的触点状态值相比较。
+		
+		== TouchPhase.Began状态是触点刚接触屏幕那一刻捕获的状态， ==
+		== TouchPhase.Ended状态是触点离开屏幕那一刻捕获的状态， ==
+		== TouchPhase.Moved状态是触点移动时捕获的状态， ==
+		== TouchPhase.Stationary状态是触点在屏幕上静止时捕获的状态， ==
+		== TouchPhase.Canceled状态是系统不对触点进行捕获的状态。 ==
+触点在屏幕上不离开的话，根据某时间内移动的距离大于或小于某距离，决定状态是Moved还是Stationary。这里的 某时间 和某距离是系统内部定义的。
+
+Touch结构的其他项：
+
+		fingerID，int类型，是触点的唯一索引值。
+		它是在很短时间内有同样状态的触点出现并且触点之间的距离大于某距离，就给他们分ID号，起到区分触点的作用，这里的很短的时间和某距离是系统内部定义的，这样可以把一个指头在一个点上的双击和两个指头的轮流敲击区分开。
+
+		Position，Vector2类型，
+		TouchPhase.Began状态下记录的是触点刚触屏时的位置；
+		TouchPhase.Ended状态下记录的是触点离开屏幕时的位置；
+		TouchPhase.Moved状态下记录的是触点每帧所在的位置；
+		TouchPhase.Stationary状态下记录的是触点最后静止时的位置。
+
+		deltaPosition ，Vector2类型，
+		主要在TouchPhase.Moved和TouchPhase.Stationary状态下记录每帧的相对位移量，有方向分正负；
+		TouchPhase.Began和TouchPhase.Ended状态时这个值只为（0,0）；
+		TouchPhase.Stationary状态下，如果完全静止此值为（0,0），如果触点有极其小的位移，但没达到TouchPhase.Moved状态，此值也会发生变化，而不是（0,0）。
+
+		deltaTime，float类型，时间增量，但各种状态下记录的意义都不同。
+		TouchPhase.Moved状态下记录距离上次运动状态的间隔时间，如果一直是TouchPhase.Moved状态，此值记录的就是每帧的时间；
+		TouchPhase.Stationary状态下，如果完全静止此值是0，如果只是微小的位移同时又没达到TouchPhase.Moved状态，此值记录是微动经历的时间；
+		TouchPhase.Ended状态下此值记录的是最后一次TouchPhase.Stationary完全静止经历的时间；
+		TouchPhase.Began状态下，如果在某时间内在某范围内连续敲击，此值记录敲击的最后一个间隔时间，如果不符合“在某时间内在某范围内连续敲击”此值为0。某时间某范围是系统内部定义的。
+
+		tapCount，int类型，
+		在TouchPhase.Began状态下，或在TouchPhase.Stationary状态下，或在TouchPhase.Moved状态下，或在TouchPhase.Ended状态下，同时满足在某时间内在某范围内连续敲击时，各状态记录连续敲击的次数。某时间某范围是系统内部定义的。
+
+		在需要的状态下，然后对所获得的某些记录数据进行条件限制，就能达到实现多种触屏动作。完全可以取代虚拟操控器、按钮性UI。只用手指的动作实现复杂的控制。
+
+		以上 距离的单位是像素，（0,0）在左下角。时间的单位是秒。

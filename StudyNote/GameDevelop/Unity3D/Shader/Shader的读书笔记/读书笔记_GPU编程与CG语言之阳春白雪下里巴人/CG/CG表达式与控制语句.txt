@@ -1,0 +1,89 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-29T17:38:55+08:00
+
+====== CG表达式与控制语句 ======
+Created 星期三 29 六月 2016
+
+=== 关系操作符（Comparison Operators） ===
+关系操作符		功能			用法
+<			小于			expr < expr
+<=			小于或等于		expr <= expr
+!=			不等于		expr != expr
+
+== 等于			expr == expr ==
+>=			大于或等于		expr >= expr
+>			大于			expr > expr
+
+Cg语言表达式允许对向量使用所有的boolean operator，如果是二元操作符，则被操作的两个向量的长度必须一致。表达式中向量的每个分量都进行一对一的运算，最后返回的结果是一个bool类型的向量，长度和操作数向量一致。例如：
+
+float3 a = float3(0.5, 0.0, 1.0);
+float3 b = float3(0.6, -0.1, 0.9);
+bool3 c = a<b;
+
+运算后向量c的结果为float3(true, false, true);
+
+=== 逻辑操作符（Logical Operators） ===
+逻辑操作符运算后的返回类型均为bool类型
+逻辑操作符 		功能 			用法
+&& 				逻辑与 		expr && expr
+|| 				逻辑或 		expr || expr
+! 				逻辑非 		!expr
+
+正如上节所说，逻辑操作符也可以对向量使用，返回的变量类型是同样长度的内置bool向量
+
+**有一点需要注意：Cg中的逻辑与（&&）和逻辑或（||）不存在C中的短路现象（short-circuiting，即只用计算一个操作数的bool值即可），而是参与运算的操作数据都进行bool分析。**
+
+=== 数学操作符（Math Operators） ===
+Cg语言**对向量的数学操作提供了内置的支持**，Cg中的数学操作符有：*乘法；/除法；-取反；+加法；—减法；%求余；++；--；*=；/=；+=；-=；
+后面四种运算符有时被归纳入赋值操作符，不过它们实际上进行数学计算，然后进行赋值，所以这里也放入数学操作符中进行说明。
+
+需要注意的是：求余操作符%。只能在int类型数据间进行，否则编译器会提示错误信息： error C1021: operands to “%” must be integral.
+
+**当使用这些数学操作符对一个标量和一个向量进行运算时，标量首先被复制到一个长度相同的向量中，然后进行运算**
+
+=== 移位操作符 ===
+Cg语言中的移位操作符，功能和C语言中的一样，也可以作用在向量上，但是向量类型必须是int类型
+
+===== Swizzle 操作符 =====
+可以使用Cg语言中的swizzle操作符（.）将一个向量的成员取出组成一个新的向量。swizzle操作符被GPU硬件高效支持。swizzle操作符后接x、y、z、w，分别表示原始向量的第一个、第二个、第三个、第四个元素；swizzle操作符后接r、g、b和a的含义与前者等同。不过为了程序的易读性，建议对于表示颜色值的向量，使用swizzle操作符后接r、g、b和a的方式。
+
+举例如下：
+float4(a, b, c, d).xyz	等价于	float3(a, b, c)
+float4(a, b, c, d).xyy	等价于	float3(a, b, b)
+float4(a, b, c, d).wzyx	等价于	float4(d, c, b, a)
+float4(a, b, c, d).w	等价于	float d
+
+**注意：swizzle操作符只能对结构体和向量使用，不能对数组使用，如果对数组使用swizzle操作符则会出现错误信息：error C1010: expression left of .”x” is not a struct or array（其实个人觉得，提示的错误信息中array换成vector更加合适）。**
+
+要从数组中取值必须使用[]符号。例如：
+float a[3] = {1.0,1.0,0.0};
+float b = a[0]; //正确
+float c = a.x; //编译会提示错误信息
+
+=== 条件操作符（Conditional Operators） ===
+条件操作符的语法格式为：
+
+expr1 ? expr2 : expr3;
+
+expr1的计算结果为true或者flase，如果是true,则expr2执行运算，否则expr3被计算。
+
+**Cg中的条件操作符一个独特的性能是：支持向量运算。即，expr1的计算结果可以是bool型向量，expr2和expr3必须是与expr1长度相同的向量。举例如下：**
+
+float3 h = float3(-1.0,1.0,1.0);
+float3 i = float3(1.0,0.0,0.0);
+float3 g = float3(1.0,1.0,0.0);
+float3 k;
+k = (h < float3(0.0,0.0,0.0))?(i):(g);
+
+三元向量h与float3(0.0, 0.0, 0.0)做比较运算后结果为（true, false, false）,所以i的第一个数据赋值给K的第一个数据，g的第二个和第三个数据赋值给k的第二个和第三个数据，K的值为(1.0, 1.0, 0.0)。
+
+=== 控制流语句（Control Flow Statement） ===
+程序最小的独立单元是语句（statement），语句一般由分号结尾，缺省情况下，语句是顺序执行的，但是当涉及逻辑判断控制时，就要求有控制流程序语句。
+
+控制流程序语句分为条件语句和循环语句，在C语言中，条件语句有if、if-else、switch等，而循环过程则由while、do-while和for语句支持。Cg中的控制流语句和循环语句与C语言类似：条件语句有：if、if-else；循环语句有：while、for。break语句可以和在for语句中使用。
+
+Cg语言中的控制流语句要求其中的条件表达式返回值都是bool类型，这一点是与C语言不同之处（C语言中，条件表达式返回值可以是0、1）
+
+同样，return只能作为最后一条语句出现。函数的递归调用（recursion）在Cg语言中是被禁止的。Switch 、case和default在Cg中作为保留关键字存在，但是它们目前不被任何profile所支持。
+

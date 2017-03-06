@@ -1,0 +1,156 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-05-13T23:43:18+08:00
+
+====== AssetBundle使用注意 ======
+Created 星期五 13 五月 2016
+
+转自:http://blog.csdn.net/llj1985/article/details/51314384
+
+注意：本文所有经验都是经过实际验证的，软件版本为Mac下Unity5.3，不同版本可能结果不同。
+
+=== 1.AssetBundle的理解 ===
+
+之前一直对AssetBundle印象不深，直到类比swf才有所改变。ab和swf一样，都是资源包，只不过包的结构不一样，它们都有压缩选项，都有加载器，WWW之与Loader。ab在资源依赖方面比swf做得好。或者直接类比zip压缩包。
+
+=== 2.AssetBundle的内存解析 ===
+
+如果使用AssetBundle的压缩功能，不管是LZMA还是LZ4压缩，就需要特别注意，使用AssetBundle.LoadAsset后，unity内部不知道干了什么，内存增加了一倍多，如果算上ab解压前的内存，就占用了太多内存，建议及时的释放WWW和AssetBundle对象。如果没有使用AssetBundle的压缩功能，就不会出现上述情况，最好的解决办法是自己压缩资源。
+
+实际测试如下：
+每个纹理在unity属性面板中显示的大小为16M，一共4个真彩纹理打成一个包。
+
+未压缩：
+assetBundle包大小：67.1M
+www加载前unity内存：347.6M
+www加载后unity内存：481.1M ( 加载原始包，拷贝未压缩包）
+LoadAllAssets后unity内存：563.2M（解码）
+
+加载包后：481.1 - 347.6 - 67.1 =  66.4 ~= 67.1
+LoadAllAssets后：563.2 - 481.1 = 82.1
+
+LZMA压缩：
+assetBundle包大小：40.2M
+www加载前unity内存：346.7M
+www加载后unity内存：448M ( 加载原始包，解压缩，用LZ4重新压缩包）
+LoadAllAssets后unity内存：665.6M（解码）
+
+加载包后：448 - 346.7 - 40.2 = 61.1 用LZ4重新压缩的包的大小 40.2 < 61.1  < 67.1
+LoadAllAssets后：665.6 - 448  = 217.6，比未压缩多了一倍内存，LoadFromFile加载的也一样
+
+从上例可以看出，www加载后，保留了原始数据，并进行了解压和重压。从assetBundle包中LoadAsset的话，还要经过一次“解码”（也许不是，统称）。建议最好不要缓存www，应该把www释放掉，只保留assetbundle。
+使用压缩的assetBundle，最终占用的内存要比非压缩的大一倍多，也许这部分内存会自动释放，但还是建议自己压缩，可控。
+
+以下是官方给出的答案，详见unity5.3手册。
+http://docs.unity3d.com/Manual/AssetBundleCompression.html
+
+当使用LZMA压缩时，为什么加载后还要进行LZ4 compression？其实AssetBundle的原则是这样的：
+
+	如果可以直接读取包中的资源(不压缩、LZ4)：
+
+如果包在磁盘中，不用把包读取到unity内存，只读取资源信息索引就行了。
+如果包在网络或mono内存中，那就把包读取到unity内存中。
+
+	如果不可以直接读取包中的资源(LZMA)：就要先解压，然后压缩成LZ4保存在内存中，供以后取用。
+
+
+LoadFromCacheOrDownload和LoadFromFile在创建AssetBundle的时候几乎不占内存，是因为它们只是读取AssetBundle的头信息，真正LoadAsset的时候才从硬盘读取。所以性能消耗都有：reading from disk。
+
+当LoadFromCacheOrDownload的时候，不管是从网络加载还是从本地加载，不管缓存目录里面有没有该资源，都认为命中缓存。如果没有缓存，对于未压缩的和LZ4压缩的AssetBundle包，unity会直接把它们拷贝到缓存目录里面，对于LZMA压缩的，这重新压缩成LZ4格式，然后缓存它。可以通过Caching.compressionEnabled控制是否压缩缓存。
+
+在mac中，缓存目录就像这样：
+/Users/llj/Library/Caches/unity.DefaultCompany.client/ea5e044532f9bdaa4e24def1cfc0d3e4c2738810/
+
+=== 3.AssetBundle的压缩率 ===
+
+虽然AssetBundle是使用LZMA压缩的，但经过实际的测试发现，其压缩率有时候还不如zlib，比自己实现的LZMA压缩低多了，可能是unity为了平衡解压时间而调整了压缩率。建议采用自己实现压缩，因为手游都是进游戏前把资源从压缩包解压缩到sd卡上的，那时不太在意解压时间。页游是实时解压缩的，会比较在意解压时间。
+
+=== 4.内存释放 ===
+
+AssetBundle相关的对象有3种：
+AssetBundle对象本身（AssetBundle-Object），
+从AssetBundle中load出来的Asset对象（Asset-Object），
+从Asset对象Instantiate出来的资源实例 （InstantiateAsset-Object）。
+
+AssetBundle.Unload(false):  释放AssetBundle-Object内存：原始包内存，解压过程占用内存等。
+AssetBundle.Unload(true): 释放AssetBundle-Object内存和AssetBundle-Object内存，AssetBundle-Object内存其实就是解压后的数据所占用的内存。
+
+AssetBundle-Object是不可以直接销毁的，为什么不能直接销毁呢？还是为了节省内存，同一个AssetBundle-Object可能被多处使用。
+其释放方式有：
+AssetBundle.Unload(true)
+Resources.UnloadUnusedAsset()
+Resources.UnloadAsset(Object)
+系统垃圾回收 ?
+场景卸载
+
+var asset = AssetBundle.LoadAsset(name); 
+var obj = Instantiate(asset);
+Destroy(asset); //报错,Destroying assets is not permitted to avoid data loss
+Destroy(obj);
+
+不可取的做法：每次从AssetBundle中load资源后就立即AssetBundle.Unload(false)，从不缓存。这样的话，同样的资源就会在内存中存在多分拷贝。
+
+=== 5.哪些资源可以实例化，哪些资源可以直接用 ===
+
+实例化，就意味着创建一个新实例，你就可以对新实例进行任意修改，而不影响其它实例。实例化一个纹理，你就可以对纹理图片的像素进行修改。本着节省内存的原则，unity会阻止实例化一些资源。
+
+Texture：不可以，设置read/write enabled后可以
+AudioClip: 不可以
+Scene：可以
+TextAsset: 可以，但一般没有必要
+Material：可以
+Shader：可以
+Mesh：可以
+Animator：可以
+Animation：可以
+TerrainData：可以
+GameObject：可以，Prefab就是GameObject，一般都是实例化prefab，实例化其他的没有必要。
+
+=== 6.网上观点的分析 ===
+
+unity文档中说AssetBundle.LoadFromFile是“This is the fastest way to load an AssetBundle”，这里指的是加载未压缩或者LZ4压缩的包。如果用AssetBundle.LoadFromFile和WWW加载本地的LZMA压缩的包，其加载时间、占用内存都是一样的，分析一下加载过程就知道了，不管使用什么加载方式，都逃不过解压解码。
+
+AssetBundle.LoadAssetWithSubAssets网上有人翻译为加载资源及其替代资源，应该是附属资源。比如tank.fbx放到unity中可以看到有子物体：TankChassis、TankTurret等网格，这些才是SubAssets。
+
+AssetBundle.mainAsset在哪里指定的？是打包的时候通过BuildPipeline.BuildAssetBundle函数指定的，Unity5中此函数已经废弃：
+public static bool BuildAssetBundle(Object mainAsset, Object[] assets, string pathName, out uint crc, BuildAssetBundleOptions assetBundleOptions);
+
+有网友推荐这样使用AssetBundle：
+创建时：
+先建立一个AssetBundle,无论是从www还是文件还是memory
+用AssetBundle.load加载需要的asset
+用完后立即AssetBundle.Unload(false),关闭AssetBundle但不摧毁创建的对象和引用
+销毁时：
+对Instantiate的对象进行Destroy
+在合适的地方调用Resources.UnloadUnusedAssets,释放已经没有引用的Asset.
+如果需要立即释放加上GC.Collect()
+这样可以保证内存始终被及时释放
+只要你Unload过的AssetBundle,那些创建的对象和引用都会在LoadLevel时被自动释放。
+
+上面说用完后立即AssetBundle.Unload(false)，判断“用完”的时间点很重要，只要是切换场景前还能用到该AssetBundle，都不算用完。比如建立场景的时候，预先加载了NPC.assetBundle和其依赖的depend.assetBundle，并实例化了NPC对象，以后再也不会创建NPC了，然后就释放了NPC.assetBundle和depend.assetBundle。后来Avatar1.assetBundle也依赖depend.assetBundle，又要重新加载depend.assetBundle，这样内存中就存在了两份depend.assetBundle的资源拷贝。况且好多时候，NPC.assetBundle和Avatar1.assetBundle本身不占多少内存，它们都是prefab，反而是它们依赖的depend.assetBundle（模型、纹理）是内存大户，所以还不如所有的AssetBundle都缓存呢，所以释放AssetBundle要慎重。
+
+=== 7.AssetBundle.LoadAsset中资源名问题 ===
+
+推荐用全名，尽量不要用简名，因为简名无法处理重名。
+
+通过ab.GetAllAssetNames()可以看到包里有如下资源：
+	 assets/test/cube.mat
+	 assets/test/cube.prefab
+
+加载assets/test/cube.mat：
+ab.LoadAsset("assets/test/cube.mat"); //yes
+ab.LoadAsset("cube.mat"); //yes
+ab.LoadAsset("cube"); //yes
+ab.LoadAsset<Material>("cube"); //yes
+
+加载assets/test/cube.prefab：
+ab.LoadAsset("assets/test/cube.prefab"); //yes
+ab.LoadAsset("cube.prefab"); //yes
+ab.LoadAsset("cube"); //no 加载到的是assets/test/cube.mat
+ab.LoadAsset<GameObject>("cube"); //no 网上说之前版本可以，我的版本是Unity5.3
+
+如果AssetBundle包中有Scene，那么是无法通过AssetBundle.LoadAsset加载出场景的，只能通过ab.GetAllScenePaths查看里面包含了哪些场景（这个函数不是查看场景资源路径的）：
+	 Assets/test2.unity
+
+要加载场景请使用SceneManager.LoadScene("test2");也可以使用场景编号，但不能使用全名。
+

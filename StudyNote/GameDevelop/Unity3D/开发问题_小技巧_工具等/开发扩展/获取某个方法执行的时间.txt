@@ -1,0 +1,50 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T16:56:38+08:00
+
+====== 获取某个方法执行的时间 ======
+Created 星期一 09 一月 2017
+
+我想在一帧内获取某个方法的总执行时间。开始想用Time.time减去之前保存的时间。但是发现在一帧内永远返回的是0，多帧的话可以，看来Time.time只会在每一帧赋值更新一次，所以一帧内的就取不到了。
+
+然后查了一下c#有一个Stopwatch的类可以帮我们记录时间，使用起来也挺便利的。。
+
+using UnityEngine;
+using System.Collections;
+using System.Diagnostics;
+ 
+public class NewBehaviourScript : MonoBehaviour {
+ 
+	void Start () {
+	
+		float t = Time.time;
+		TestMethod();
+		UnityEngine.Debug.Log(string.Format("total: {0} ms",Time.time - t));
+ 
+		Stopwatch sw = new Stopwatch();
+		sw.Start();
+		TestMethod();
+		sw.Stop();
+		UnityEngine.Debug.Log(string.Format("total: {0} ms",sw.ElapsedMilliseconds));
+ 
+		Profiler.BeginSample("TestMethod");
+		TestMethod();
+		Profiler.EndSample();
+	}
+ 
+	void TestMethod()
+	{
+		for(int i =0; i < 10000000; i++)
+		{
+		}
+	}
+}
+
+如下图所示，Stopwatch就可以正确的取到上一个方法所消耗的时间。如果想同时测试多个方法，可以多次调用 sw.Reset(); 然后sw.Stop取ElapsedMilliseconds毫秒数即可。
+
+{{./1.png}}
+
+当然也可以用 Profiler.BeginSample 和 Profiler.EndSample 但是就是要打开Profiler界面找到那一帧就可以看了。
+
+{{./2.png}}
+

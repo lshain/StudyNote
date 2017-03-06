@@ -1,0 +1,123 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-29T10:03:09+08:00
+
+====== CG数据类型 ======
+Created 星期三 29 六月 2016
+
+===== CG数据类型 =====
+
+=== Cg 支持7 种基本的数据类型： ===
+1. float，32 位浮点数据，一个符号位。浮点数据类型被所有的profile 支持（但是DirectX8 pixel profiles 在一些操作中降低了浮点数的精度和范围）；
+2. half，16 为浮点数据；
+3. int，32 位整形数据，有些profile 会将int 类型作为float 类型使用；
+4. fixed，12 位定点数，被所有的fragment profiles 所支持；
+5. bool，布尔数据，通常用于if 和条件操作符（?:），布尔数据类型被所有的profiles 支持；
+6. sampler*，纹理对象的句柄（the handle to a texture object），分为6 类：sampler, sampler1D, sampler2D, sampler3D, samplerCUBE,和samplerRECT。DirectX profiles 不支持samplerRECT 类型，除此之外这些类型被所有的pixel profiles 和 NV40 vertex program profile 所支持（CgUsersManual 30 页）。由此可见，在不远的未来，顶点程序也将广泛支持纹理操作；
+7. string，字符类型，该类型不被当前存在的profile 所支持，实际上也没有必要在Cg 程序中用到字符类型，但是你可以通过Cg runtime API 声明该类型变量，并赋值；因此，该类型变量可以保存Cg 文件的信息。
+
+前6 种类型会经常用到，事实上在Wikipedia 有关Cg 语言的阐述中只列举了前6 种类型，而并没有提到string 数据类型。除了上面的基本数据类型外，Cg还提供了内置的向量数据类型(built-in vector data types)，内置的向量数据类型基于基础数据类型。例如：float4，表示float 类型的4 元向量；bool4，表示bool类型4 元向量。
+
+**注意：向量最长不能超过4 元，即在Cg 程序中可以声明float1、float2、float3、float4 类型的数组变量，但是不能声明超过4 元的向量，例如：**
+
+float5 array;//编译报错
+
+向量初始化方式一般为：
+
+float4 array = float4(1.0, 2.0, 3.0, 4.0);
+
+较长的向量还可以通过较短的向量进行构建：
+float2 a = float2(1.0, 1.0);
+float4 b = float4(a, 0.0, 0.0);
+
+此外，Cg 还提供矩阵数据类型，不过最大的维数不能超过4*4 阶。例如：
+float1x1 matrix1;//等价于float matirx1; x 是字符，并不是乘号！
+float2x3 matrix2;// 表示2*3 阶矩阵，包含6 个float 类型数据
+float4x2 matrix3;// 表示4*2 阶矩阵，包含8 个float 类型数据
+float4x4 matrix4;//表示4*4 阶矩阵，这是最大的维数
+
+矩阵的初始化方式为：
+float2x3 matrix5 = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+
+**注意：Cg 中向量、矩阵与数组是完全不同，向量和矩阵是内置的数据类型**
+**（矩阵基于向量），而数组则是一种数据结构，不是内置数据类型！这一点和**
+**C\C++中不太一样，在C\C++中，这三者同属于数据结构，数组可以构建向量和**
+**矩阵。下一节中将详细阐述Cg 中的数组类型。**
+
+=== 数组类型 ===
+Cg 中声明数组变量的方式和C 语言类似：例如：
+
+float a[10];//声明了一个数组，包含10 个float 类型数据
+float4 b[10];//声明了一个数组，包含10 个float4 类型向量数据
+
+对数组进行初始化的方式为：
+
+float a[4] = {1.0, 2.0, 3.0, 4.0}; //初始化一个数组
+
+要获取数组长度，可以调用“.length”，例如：
+
+float a[10]; //声明一个数组
+int length = a.length;//获取数组长度
+
+声明多维数组以及初始化的方式如下所示：
+
+float b[2][3] = { { 0.0, 0.0, 0.0 }, { 1.0, 1.0, 1.0 } };
+
+对多维数组取长度的方式为：
+
+int length1 = b.length; // length1 值为2
+int length2 = b[0].length; // length2 值为3
+
+数组和矩阵有些类似，但是并不是相同。 
+
+例如4*4 阶数组的的声明方式为：float M[4][4];
+
+4 阶矩阵的声明方式为：float4x4 M。
+
+前者是一个数据结构，包含16个float 类型数据，后者是一个4 阶矩阵数据。
+
+float4x4 M[4]，表示一个数组，包含4 个4 阶矩阵数据。
+
+进行数组变量声明时，一定要指定数组长度，除非是作为函数参数而声明的形参数组。并且在当前的profiles 中，数组的长度和所引用的数组元素的地址必须在编译时就知道。
+
+=== 结构类型 ===
+结构体的声明以关键字struct 开始，然后紧跟结构体的名字，接下来是一个大括号，并以分号结尾（不要忘了分号）。大括号中是结构体的定义，分为两大类：成员变量和成员函数。
+
+例如，定义一个名为myAdd 的结构体，包含一个成员变量，和一个执行相加功能的成员函数，然后声明一个该结构体类型的变量，
+代码为：
+struct myAdd
+{
+	float val;
+	float add(float x)
+	{
+		return val + x;
+	}
+};
+myAdd s;
+
+使用符号“• ”引用结构体中的成员变量和成员函数。例如：
+
+float a = s.value;
+float b = s.add(a);
+
+**注意：在当前的所有的profile 版本下，如果结构体的一个成员函数使用了成员变量，则该成员变量要声明在前。此外，成员函数是否可以重载依赖于使用的profile 版本。**
+
+=== 类型转换 ===
+Cg 中的类型转换和C 语言中的类型转换很类似。C 语言中类型转换可以是强制类型转换，也可以是隐式转换，如果是后者，则数据类型从低精度向高精度转换。在Cg 语言中也是如此。
+例如：
+float a = 1.0;
+half b = 2.0;
+float c = a+b; //等价于float c = a + (float)b;
+
+当有类型变量和无类型常量数据进行运算时，该常量数据不做类型转换，举例如下：
+float a = 1.0;
+float b = a + 2.0; //2.0 为无类型常量数据，编译时作为float 类型
+
+Cg 语言中对于常量数据可以加上类型后缀，表示该数据的类型，例如：
+float a = 1.0;
+float b = a + 2.0h; //2.0h 为half 类型常量数据，运算是需要做类型转换
+
+常量的类型后缀（type suffix）有3 种：
+* f: 表示 float;
+* h: 表示 half;
+* x: 表示 fixed

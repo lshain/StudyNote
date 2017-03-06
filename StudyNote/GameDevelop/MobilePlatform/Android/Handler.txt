@@ -1,0 +1,419 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-16T16:04:59+08:00
+
+====== Handler ======
+Created 星期二 16 八月 2016
+
+一个Handler允许你发送和处理消息（Message）以及与一个线程的消息队列相关的Runnable对象。每个Handler实例都和单个线程以及该线程的消息队列有关。当你创建了一个新Handler，它就会和创建它的线程/消息队列绑定，在那以后，它就会传递消息以及runnable对象给消息队列，然后执行它们。
+
+需要使用Handler有两大主要的原因：
+	  （1）在将来的某个时间点调度处理消息和runnable对象；
+	  （2）将需要执行的操作放到其他线程之中，而不是自己的；
+
+调度处理消息是通过调用
+post(Runnable), 
+postAtTime(Runnable, long),
+postDelayed(Runnable, long), 
+sendEmptyMessage(int), 
+sendMessage(Message),
+sendMessageAtTime(Message, long),
+sendMessageDelayed(Message,long) 等方法完成的。
+
+其中的post版本的方法可以让你将Runnable对象放进消息队列；
+sendMessage版本的方法可以让你将一个包含有bundle对象的消息对象放进消息队列，然后交由handleMessage(Message)方法处理。（这个需要你复写Handler的handleMessage方法）
+**【以上这段翻译自androidsdk】**
+
+Handler在实际开发中是很常用的，主要是用来接收子线程发送的数据，然后主线程结合此数据来更新界面UI。
+
+		Android应用程序启动时，他会开启一个主线程（也就是UI线程），管理界面中的UI控件，进行事件派发，比如说：点击一个按钮，Android会分发事件到Button上从而来响应你的操作。但是当你需要执行一个比较耗时的操作的话，例如：进行IO操作，网络通信等等，若是执行时间超过5s，那么Android会弹出一个“经典”的ANR无响应对话框，然后提示按“Force quit”或是“Wait”。解决此类问题的方法就是：我们把一些耗时的操作放到子线程中去执行。但因为子线程涉及到UI更新，而Android主线程是线程不安全的，所以更新UI的操作只能放在主线程中执行，若是放在子线程中执行的话很会出问题。所以这时就需要一种机制：主线程可以发送“命令/任务”给子线程执行，然后子线程反馈执行结果；
+
+**你必需要知道的：**
+若在主线程中实例化一个Handler对象，例如：
+	Handler mHandler = newHandler();
+	此时它并没有新派生一个线程来执行此Handler，而是将此Handler附加在主线程上，故此时若你在Handler中执行耗时操作的话，还是会弹出ANR对话框！
+
+下面就Handler的使用举一些例子，加深理解。
+
+=== post版本的Handler使用示例： ===
+package com.dxyh.test;     
+    
+import android.app.Activity;     
+import android.content.Context;     
+import android.os.Bundle;     
+import android.os.Handler;     
+import android.util.Log;     
+import android.view.View;     
+import android.view.View.OnClickListener;     
+import android.widget.Button;     
+    
+public class MainActivity extends Activity     
+				implements OnClickListener {     
+	private final static String TAG = "HandlerTest";     
+	private final static int DELAY_TIME = 1000;     
+         
+	private Button btnStart;     
+	private Button btnStop;     
+         
+	Context mContext = null;     
+         
+	/** Called when the activity is first created. */    
+	@Override    
+	public void onCreate(Bundle savedInstanceState) {     
+		super.onCreate(savedInstanceState);     
+		setContentView(R.layout.main);     
+             
+		mContext = this;     
+    
+		Log.i(TAG, "Main thread id = " +      
+				Thread.currentThread().getId());     
+             
+		btnStart = (Button) findViewById(R.id.btn_start);     
+		btnStart.setOnClickListener(this);     
+		btnStop = (Button) findViewById(R.id.btn_stop);     
+		btnStop.setOnClickListener(this);     
+	}     
+         
+	@Override    
+	public void onClick(View view) {     
+		switch (view.getId()) {     
+		case R.id.btn_start:     
+			mHandler.postDelayed(workRunnable, DELAY_TIME);     
+			break;     
+		case R.id.btn_stop:     
+			mHandler.removeCallbacks(workRunnable);     
+			break;     
+		}     
+	}     
+         
+	Runnable workRunnable = new Runnable() {     
+		int counter = 0;     
+             
+		public void run() {     
+			if (counter++ < 1) {     
+				Log.i(TAG, "workRunnable thread id = " +      
+						Thread.currentThread().getId());     
+				mHandler.postDelayed(workRunnable, DELAY_TIME);     
+			}     
+		}     
+	};     
+         
+	Handler mHandler = new Handler();     
+} 
+
+**说明：发现thread id是相同的，这就说明：默认情况下创建的Handler会绑定到主线程上，你不能做太耗时的操作。**
+
+package com.mp;     
+import android.app.Activity;     
+import android.os.Bundle;     
+import android.os.Handler;     
+import android.os.HandlerThread;     
+public class MyThread2 extends Activity {     
+	private Handler handler = null;     
+	@Override    
+	public void onCreate(Bundle savedInstanceState) {     
+		super.onCreate(savedInstanceState);     
+		HandlerThread handlerThread = new HandlerThread("myHandlerThread");     
+		handlerThread.start();     
+		handler = new Handler(handlerThread.getLooper());     
+		handler.post(new MyRunnable());     
+		System.out.println("Oncreate---The Thread id is :"    
+				+ Thread.currentThread().getId());     
+		setContentView(R.layout.main);     
+	}     
+
+	private class MyRunnable implements Runnable {     
+		public void run() {     
+			System.out.println("Runnable---The Thread is running");     
+			System.out.println("Runnable---The Thread id is :"    
+					+ Thread.currentThread().getId());     
+			try {     
+				Thread.sleep(6000);     
+			} catch (InterruptedException e) {     
+				// TODO Auto-generated catch block    
+				e.printStackTrace();     
+			}     
+		}     
+	}     
+}
+
+在这个demo中,用到了HandlerThread,在HandlerThread对象中可以通过getLooper方法获取一个Looper对象控制句柄，我们可以将其这个Looper对象映射到一个Handler中去来实现一个线程同步机制。于是就有以下结果;
+1：控制台的输出： Oncreate---The Thread id is :1
+							 Runnable---The Threadis running
+							 Runnable---The Threadid is :10
+2：程序启动后,我们立刻看到main.xml中的内容。
+这样就达到了多线程的结果。
+
+=== 主线程给主线程发送消息： ===
+public class mainSendToMain extends Activity { 
+	private Button btnTest; 
+	private TextView textView; 
+	private Handler handler; 
+
+	@Override 
+	public void onCreate(Bundle savedInstanceState) { 
+		super.onCreate(savedInstanceState); 
+		setContentView(R.layout.main); 
+	
+			btnTest = (Button)this.findViewById(R.id.btn_01); 
+			textView = (TextView)this.findViewById(R.id.view_01); 
+
+			btnTest.setOnClickListener(new View.OnClickListener() { 
+			@Override 
+			public void onClick(View arg0) { 
+				Looper looper = Looper.getMainLooper();      //getMainLooper()方法是返回主线程的Looper对象 
+			
+				//这里以主线程的Looper对象创建了handler， 
+				//所以，这个handler发送的Message会被传递给主线程的MessageQueue。 
+				handler = new MyHandler(looper);
+			
+				//构建Message对象 
+				//第一个参数：是自己指定的message代号，方便在handler选择性地接收 
+				//第二三个参数是传递的整型值，对内存消耗较少 
+				//第四个参数需要封装的对象 
+				Message msg = handler.obtainMessage(1,2,3,"主线程发消息了"); 
+				handler.sendMessage(msg); //发送消息 
+			} 
+		}); 
+	}
+
+	class MyHandler extends Handler{ 
+		public MyHandler(Looper looper){ 
+			super(looper); 
+		}
+	
+		public void handleMessage(Message msg){ 
+			textView.setText("我是主线程的Handler，收到了消息："+msg.obj); 
+		} 
+	}
+}
+
+=== 其他线程给自己发送消息： ===
+public class otherSendToIts extends Activity{
+	private Button btnTest; 
+	private TextView textView; 
+	private Handler handler; 
+
+	@Override 
+	public void onCreate(Bundle savedInstanceState) { 
+		super.onCreate(savedInstanceState); 
+		setContentView(R.layout.main); 
+
+		btnTest = (Button)this.findViewById(R.id.btn_01); 
+		textView = (TextView)this.findViewById(R.id.view_01); 
+        
+		btnTest.setOnClickListener(new View.OnClickListener() { 
+			@Override 
+			public void onClick(View arg0) { 
+				//启动线程 
+				new MyThread().start();     
+			} 
+		}); 
+	}
+
+	class MyHandler extends Handler{ 
+		public MyHandler(Looper looper){ 
+			super(looper); 
+		} 
+
+		public void handleMessage(Message msg){ 
+			super.handleMessage(msg); 
+			textView.setText((String)msg.obj); 
+		} 
+	}
+
+	class MyThread extends Thread{ 
+		public void run(){ 
+			Looper.prepare();       //创建该线程的Looper对象 
+			handler = new ThreadHandler(Looper.myLooper()); 		//这里Looper.myLooper()获得的就是该线程的Looper对象了
+			Message msg = handler.obtainMessage(1,1,1,"我自己"); 
+			handler.sendMessage(msg); 
+			Looper.loop();  
+		}
+	
+		//定义线程类中的消息处理类 
+		class ThreadHandler extends Handler{ 
+			public ThreadHandler(Looper looper){ 
+				super(looper); 
+			} 
+
+			public void handleMessage(Message msg){ 
+				//这里对该线程中的MessageQueue中的Message进行处理 
+				//这里我们再返回给主线程一个消息 
+				//加入判断看看是不是该线程自己发的信息 
+				if(msg.what == 1 && msg.obj.equals("我自己")){ 
+					handler = new MyHandler(Looper.getMainLooper()); 
+					Message msg2 = handler.obtainMessage(1,1,1,"禀告主线程:我收到了自己发给自己的Message"); 
+					handler.sendMessage(msg2);                 
+				} 
+			} 
+		} 
+	} 
+}
+
+=== 其他线程给主线程发送消息： ===
+public class otherSendToMain extends Activity{
+	private Button btn;
+	private TextView textView;
+	private Handler handler;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		// TODO Auto-generated method stub
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.main);
+		btn = (Button) findViewById(R.id.btn_01);
+		textView = (TextView) findViewById(R.id.view_01);
+		btn.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				// TODO Auto-generated method stub
+			new MyThread().start();	
+			}
+		});
+	}
+
+	class MyHandler extends Handler{		
+		public MyHandler(Looper looper){
+			super(looper);
+		}
+
+		@Override
+		public void handleMessage(Message msg) {
+			// TODO Auto-generated method stub
+			super.handleMessage(msg);
+			textView.setText("我是主线程的Handler，收到了消息："+(String)msg.obj);
+		}
+	}
+	
+	class MyThread extends Thread{
+		public void run(){
+			Looper looper = Looper.getMainLooper();
+			handler = new MyHandler(looper);
+			Message message = handler.obtainMessage(1,2,3,"其他线程发消息了");
+			handler.sendMessage(message);
+		}
+	}
+}
+
+=== 主线程给其他线程发送消息： ===
+public class mainSendToOther extends Activity {
+	Button button3;
+	TextView textView;
+	Looper mainLooper;
+	 
+	// 其它线程
+	OtherHandler otherHandler;
+	
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.main);
+	 
+		button3 = (Button) findViewById(R.id.btn_01);
+		textView = (TextView) findViewById(R.id.view_01);
+		button3.setOnClickListener(new OnClickListener(){
+
+			@Override
+			public void onClick(View v) {
+				// TODO Auto-generated method stub
+				Message msg =otherHandler.obtainMessage(1,"这是主线程发送的消息");
+				otherHandler.sendMessage(msg);
+			}
+		});
+	  
+		MyThread thread = new MyThread();
+		thread.start();
+	}
+
+	class MyThread extends Thread {
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			super.run();
+
+			//创建该线程的Looper对象，用于接收消息
+			Looper.prepare();
+
+			//线程的looper创建的handler表示消息接收者是子线程
+			otherHandler = new OtherHandler(Looper.myLooper());
+
+			//循环从MessageQueue中取消息。 
+			Looper.loop();
+		}
+	}
+	 
+	class OtherHandler extends Handler {
+		public OtherHandler() {
+			// TODO Auto-generated constructor stub
+		}
+	
+		public OtherHandler(Looper looper) {
+			// TODO Auto-generated constructor stub
+			super(looper);
+		}
+	  
+		@Override
+		public void handleMessage(Message msg) {
+			// TODO Auto-generated method stub
+			super.handleMessage(msg);
+			mainHandler = new MainHandler(Looper.getMainLooper());
+			Message message = new Message();
+			message.obj="子线程收到消息";
+			mainHandler.sendMessage(message); 
+		}
+	}
+	 
+	MainHandler mainHandler;
+	class MainHandler extends Handler {
+		public MainHandler() {
+			// TODO Auto-generated constructor stub
+		}
+	  
+		public MainHandler(Looper looper) {
+			// TODO Auto-generated constructor stub
+			super(looper);
+		}
+	  
+		@Override
+		public void handleMessage(Message msg) {
+			// TODO Auto-generated method stub
+			super.handleMessage(msg);
+			textView.setText("我是主线程，这是收到的消息："+msg.obj);
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

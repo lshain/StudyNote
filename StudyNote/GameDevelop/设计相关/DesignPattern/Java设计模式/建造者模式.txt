@@ -1,0 +1,158 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T22:52:11+08:00
+
+====== 建造者模式 ======
+Created 星期一 15 八月 2016
+
+建造者模式:将一个复杂对象的构成与它的表示分离，使得同样的构建过程可以创建不同的表示。以下是例子：
+
+//抽象各种部件
+interface VehicleBuilder {
+	void BuildFrame();
+	void BuildEngine();
+	void BuildWheels();
+	void BuildDoors();
+	void Builder();
+}
+
+//根据实际实现抽象部件类 
+public class CarBuilder implements VehicleBuilder {
+	Shop shop = new Shop();
+	
+	public void BuildFrame() {
+		shop.hashput("frame", "轿车 框架"); 
+	}
+	
+	public void BuildEngine() {
+		shop.hashput("engine", "2500 毫升"); 
+	}
+	
+	public void BuildWheels() {
+		shop.hashput("wheels", "四个车轮"); 
+	}
+	
+	public void BuildDoors() {
+		shop.hashput("doors", "四个车门"); 
+	}
+	
+	public void Builder() {
+		shop.hashput("type", "轿车"); 
+	} 
+}
+
+//负责使用HashTable保留与输出 
+public class Shop {
+	Hashtable<String,String> hashtable = new Hashtable<String,String>();
+	
+	public void hashput(String key,String value){
+		hashtable.put(key, value);
+	}
+
+	public void show(){
+		System.out.println("-----"+hashtable.get("type")+"-----");
+		System.out.println("框架:"+hashtable.get("frame"));
+		System.out.println("发动机:"+hashtable.get("engine"));
+		System.out.println("车轮数量:"+hashtable.get("wheels"));
+		System.out.println("车门数量:"+hashtable.get("doors"));
+	}
+} 
+
+//把一个建造的过程包装起来 
+public class Vehicle {
+	private VehicleBuilder builder;
+	public Vehicle(VehicleBuilder builder){
+		this.builder = builder;
+	}
+	
+	public void construct(){
+		builder.BuildFrame();
+		builder.BuildEngine();
+		builder.BuildDoors();
+		builder.BuildWheels();
+		builder.Builder();
+	}
+} 
+
+//测试类
+public class Test {
+	public static void main(String[] args) {
+		CarBuilder car = new CarBuilder(); 
+		Vehicle vehicle1 = new Vehicle(car); 
+
+		//把所有放进HashMap的方法都放在这里     
+		vehicle1.construct();
+
+		//输出所有内容     
+		car.shop.show(); 
+	} 
+}
+
+== ================================================================== ==
+
+简单地说，就好象我要一座房子住，可是我不知道怎么盖（简单的砌墙，层次较低），也不知道怎么样设计（建几个房间，几个门好看，层次较高），于是我需要找一帮民工，他们会砌墙，还得找个设计师，他知道怎么设计，我还要确保民工听设计师的领导，而设计师本身也不干活，光是下命令，这里砌一堵墙，这里砌一扇门，这样民工开始建设，最后，我可以向民工要房子了。在这个过程中，设计师是什么也没有，除了他在脑子里的设计和命令，所以要房子也是跟民工要，记住了！
+
+以下是richardluo的代码，我根据他的思路加上了相应的注释。
+
+1，定义工人接口，就是能够完成建造房子任务的人的通用要求。
+java 代码
+ 
+// 工人接口，定义了各个工人所要进行的工所作。他们负责进行具体部件如窗户，地板的建造。
+// 同时因为房子是民工建的，因此建设完成后由他把房子递交回房主
+public interface Builder {  
+	public  void makeWindow();  
+	public  void makeFloor();  
+	public  Room  getRoom();  
+}  
+
+2，定义设计师，他的职责是指挥房主指派给他的工人按照自己的设计意图建造房子。
+java 代码
+ 
+// 设计师。他知道房子应该怎么设计，但他不会自己去建造，而是指挥民工去建造。  
+public class Designer {  
+	// 指挥民工进行工作  
+	public void order(Builder  builder) {  
+		builder.makeWindow();  
+		builder.makeFloor();  
+	}  
+}  
+
+3，民工，他负责具体事物的实施。
+java 代码
+ 
+// 民工。负责进行具体部件如窗户，地板的建造。
+//同时因为房子是民工建的，因此建设完成后由他把房子递交回房主  
+public class Mingong  implements Builder {  
+	private  String window="";  
+	private  String floor="";  
+    
+	public  void makeWindow() {  
+		window=new String("window");  
+	}  
+  
+	public  void makeFloor(){  
+		floor=new String("floor");  
+	}  
+   
+	// 回交房子给房主  
+	public  Room  getRoom() {  
+		if((!window.equals(""))&&(!floor.equals(""))) {  
+			System.out.println("room ready!");  
+			return new Room();  
+		}  
+		else return null;  
+	}  
+}  
+
+4，房主，就是雇人，收房。
+java 代码
+ 
+// 房主。房主的任务就是聘请一个民工，一个设计师，同时把民工给设计师指挥，督促设计师开展工作。最后从民工手上收房。    
+public class Client {    
+	public static void main(String[] args) {    
+		Builder mingong = new Mingong();    
+		Designer  designer = new  Designer();    
+		designer.order(mingong);    
+		mingong.getRoom();    
+	}    
+}

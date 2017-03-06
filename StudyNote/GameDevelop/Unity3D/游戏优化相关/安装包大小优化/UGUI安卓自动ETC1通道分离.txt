@@ -1,0 +1,42 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-13T11:40:45+08:00
+
+====== UGUI安卓自动ETC1通道分离 ======
+Created 星期五 13 一月 2017
+
+转自：http://www.xuanyusong.com/archives/4279
+
+网上已经有类似的解决方案，原理就是在做一张通道图，然后在shader里混合。代价就是需要做个shader在做一个脚本代替Image 和RawImage。
+
+今天我发现其实unity自己已经做了这个功能了，不用写shader，也不用替换脚本，原生支持就是方便啊。
+
+先看看我的图集，ETC1 压缩格式
+{{./1.jpg}}
+
+1.升级你的unity到5.5（有可能unity5.4也可以）
+
+2.Sprite必须设置Packing Tag（只有图集才支持）
+
+3.设置所有UI贴图的格式为ETC1（无论透明还是不透明）
+
+4.如下图所示，勾选Compress using ETC1(split alpha channel) （可以写个工具自动批量修改）
+{{./2.png}}
+
+5.搞定
+
+测试机器是小米pad1，先看看真机上的效果。
+{{./3.png}}
+
+今天我还发现了另外一个问题，在某些android机器上可能会显示成这样。
+{{./4.png}}
+
+我第一反应这肯定是unity的bug，我想办法解决了一下。
+
+下载unity5.5的内置shader。有一个叫UI-DefaultETC1的shader拖入工程，在ProjectSetting->GraphicsSettings里添加进去。
+{{./5.png}}
+
+真机Profiler下，很清楚的看见透明图已经被unity分离了。
+{{./6.png}}
+
+大家请在看上面的安卓真机Profiler的图。Unity把一张1024X1024的图拆分成 0.5M大小 和1M大小 的两张图， 0.5M 就是ETC1的压缩图， 另外一个1M 我猜就是对应 Alpha  8 格式。 这样就算图片有的透明渐变的效果也会是很好的。 强烈建议大家使用啊～ 如果是1024大小 这样从truecolor的4M减少到现在1.5M 效果还是很可观的。

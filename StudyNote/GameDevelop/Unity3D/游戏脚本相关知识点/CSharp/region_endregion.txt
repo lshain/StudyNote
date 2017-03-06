@@ -1,0 +1,15 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-05T20:54:11+08:00
+
+====== region endregion ======
+Created 星期二 05 一月 2016
+
+CSharp 中 的 #region 和 #endregion 表示一块区域，这样在 Visual Studio 中可以将这块区域的代码折叠起来，便于查看。
+虽然 Visual Studio 也响应大括号的折叠，但大括号会引起作用域的变化，而 #region 和 #endregion 则不会。
+
+#region 和 #endregion 大小写敏感。
+
+#region 和 #endregion 可以嵌套。
+
+#region 后面可以跟任意文字以对该区域进行说明。

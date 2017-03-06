@@ -1,0 +1,115 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-12T16:45:03+08:00
+
+====== 5 Diffuse Shading-创建一个自定义的diffuse lighting model（漫反射光照模型） ======
+Created 星期日 12 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/17440101
+
+上一篇中，我们学了怎样在surface shader（这里即指surf函数）中使用自己定义的Properties变量。而在之前的学习中，我们实际上使用的都是Unity内置的Diffuse Lighting Model，即漫反射光照模型。这一次，我们将学习如何让Unity使用我们自己定义的光照模型进行渲染。
+
+=== 准备工作 ===
+使用上一篇结束时的shader代码即可。
+Shader "Custom/BasicDiffuse" {  
+	Properties {  
+		_EmissiveColor ("Emissive Color", Color) = (1,1,1,1)  
+		_AmbientColor  ("Ambient Color", Color) = (1,1,1,1)  
+		_MySliderValue ("This is a Slider", Range(0,10)) = 2.5  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+          
+		//We need to declare the properties variable type inside of the  
+		//CGPROGRAM so we can access its value from the properties block.  
+		float4 _EmissiveColor;  
+		float4 _AmbientColor;  
+		float _MySliderValue;  
+          
+		struct Input  
+		{  
+			float2 uv_MainTex;  
+		};  
+          
+		void surf (Input IN, inout SurfaceOutput o)  
+		{  
+			//We can then use the properties values in our shader  
+			float4 c;  
+			c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+          
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+=== 实现 ===
+将上述代码的第11行，即#pragma surface surf Lambert一行，改为如下代码：
+#pragma surface surf BasicDiffuse
+
+向SubShader中添加如下函数（位置需在#pragma下面）：
+inline float4 LightingBasicDiffuse (SurfaceOutput s, fixed3 lightDir, fixed atten)  
+{  
+	float difLight = max(0, dot (s.Normal, lightDir));  
+	float4 col;  
+	col.rgb = s.Albedo * _LightColor0.rgb * (difLight * atten * 2);  
+	col.a = s.Alpha;  
+	return col;
+}
+
+保存，进入Unity查看编译结果。
+
+Unity编译成功后，你会发现Material并没有什么可视化变化。因为上面仅仅是将Unity自带的Surface Lighting Model——Lambert，换成了我们自定义的光照模型——BasicDiffuse。
+
+=== 解释 ===
+1. "#pragma surface"将直接告诉Shader使用哪个光照模型用于计算。当我们最初创建了一个Shader时，Untiy为我们指定了一个默认的光照模型即Lambert（在Lighting.cginc中定义）。因此我们一开始可以使用这个默认的模型进行渲染。而现在，我们告诉Shader，嘿，使用一个名叫BasicDiffuse的光照模型给我渲染哦！
+
+2. 为了创建一个新的光照模型，我们需要声明一个新的光照模型函数。例如上面，我们声明了BasicDiffuse，并且定义了一个函数名叫LightingBasicDiffuse，如你所见，这两者之间的关系即为Lighting<自定义的光照模型名称>。下面有三种可供选择的光照模型函数：
+
+half4 LightingName (SurfaceOutput s, half3 lightDir, half atten){}  
+这个函数被用于forward rendering（正向渲染），但是不需要考虑view direction（观察角度）时。
+
+half4 LightingName (SurfaceOutput s, half3 lightDir, half3 viewDir, half atten){}  
+这个函数被用于forward rendering（正向渲染），并且需要考虑view direction（观察角度）时。
+
+half4 LightingName_PrePass (SurfaceOutput s, half4 light){}  
+这个函数被用于需要使用defferred rendering（延迟渲染）时。
+
+3. 观察我们定义的光照模型函数。dot函数是一个Cg的内置数学函数，可以被用于比较空间中两个向量的方向。若两个参数向量均为单位向量（一般如此），-1表示两向量平行但方向相反，1表示两向量平行且方向相同，0表示两向量垂直。
+
+4. 为了完成光照模型函数，我们还使用了一个Unity提供的数据——类型为SurfaceOutput的变量s。我们将s.Albedo（从surf函数中输出）和_LightColor0.rgb（Unity提供）相乘，结果再乘以(difLight * atten * 2)，最后作为颜色值进行输出。
+
+=== 到这里，可能大家还会对LightingBasicDiffuse的代码不理解。下面再谈一下我的理解。 ===
+
+1. 首先是参数。s是上一个surf函数的输出。
+void surf (Input IN, inout SurfaceOutput o)  
+{  
+	//We can then use the properties values in our shader  
+	float4 c;  
+	c =  pow((_EmissiveColor + _AmbientColor), _MySliderValue);  
+	o.Albedo = c.rgb;  
+	o.Alpha = c.a;  
+}
+
+由上可以看出，经过surf函数，计算输出了s的Albedo（反射率）和Alpha（透明度）。
+LightBasicDiffuse函数输出的将是一个surface上某一点的颜色值和透明度值。因此lightDir对应该点的光照方向。而atten表明了光线的衰减率。
+
+2. 光照模型函数中的第一行代码通过dot函数和max函数，计算到达该点的光照值（由于dot函数的两个参数都是单位向量，也可以理解成是入射光线的角度的余弦值，角度越大，余弦值越小，进入人眼的光线也就越少，物体看起来也就越暗）。由于光线有可能从相反射入，因此通过dot得到的值有可能是负数。如果不用max加以限制，之后将会得到非预期的效果，如全黑等。
+
+3. 接下来计算颜色值col。col的rgb由三个部分计算而得：第一个部分是surface本身的反射率，这很好理解，因为反射率越大，进入人眼的光线就越多，颜色也就越鲜亮；第二个是_LightColor0.rgb。_LightColor0是Unity内置变量，我们可以使用它得到场景中光源的颜色等；最后便是利用第一步中得到的光照值和衰减率的乘积。细心的童鞋可以发现，这里后面多乘了一个倍数2。按我的猜测，这里仅仅是根据需要自行修改的。例如，没有倍数2时，效果如下：
+{{./1.png}}
+
+乘以倍数2后效果如下：
+{{./2.png}}
+
+
+结束语
+
+更多关于Surface Shader光照模型函数参数的信息，可以参见[[http://docs.unity3d.com/Manual/SL-SurfaceShaderLighting.html|Unity官方文档]]。
+
+

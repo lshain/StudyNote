@@ -1,0 +1,130 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-12T18:04:42+08:00
+
+====== 多余的MeshCollider和Animation组件 ======
+Created 星期四 12 一月 2017
+
+如果你是在做手游项目，我强烈建立不要做碰撞，有关一切物理的东西Unity对手机支持的并不好，如果不信你可以试试效率你就知道。美术兄弟，每次给过来的场景，都会带上MeshCollider 和Animation 空的组件。这俩东西很占效率的，不信你可以用Profiler 看看。如果你让美工们上传场景的时候手动检查一下，把MeshCollider和Animation空的组件都删掉，我可以很负责的告诉你，他们肯定会忘删除或者错删。。。比如下图这样的组件。
+
+{{./1.png}}
+
+		  还有场景的材质最好用Mobile/Diffuse，他会比Diffuse的shader效率高很多，因为它会减少每个点的一次乘法。但是有时候美术需要做贴图的变色， 那就不能用Mobile/Diffuse了。但是后来我看了一下有很多材质用的是Diffuse，但是颜色那里是纯白色，那么shader在渲染的时候每个点都多余的进行了一次乘法的运算（效率白白的浪费了）。。。
+
+		   作为程序我们首先要避免策划和美术犯错，果断的写一个插件吧，美术在上传场景之前让运行一下插件，把没用的组件删除掉。
+
+	[MenuItem("Tools/删除场景没用的MeshCollider和Animation")]
+	static public void Remove()
+	{
+	  //获取当前场景里的所有游戏对象
+		GameObject []rootObjects = (GameObject[])UnityEngine.Object.FindObjectsOfType(typeof(GameObject));
+		//遍历游戏对象
+		foreach(GameObject go in rootObjects)
+		{
+		  //如果发现Render的shader是Diffuse并且颜色是白色，那么将它的shader修改成Mobile/Diffuse
+			if(go != null && go.transform.parent != null)
+			{
+					Renderer render = go.GetComponent<Renderer>();
+				  if( render != null &&render.sharedMaterial != null && render.sharedMaterial.shader.name == "Diffuse" && render.sharedMaterial.color == Color.white)
+					{
+					  render.sharedMaterial.shader = Shader.Find("Mobile/Diffuse");
+					}
+			}
+ 
+	  //删除所有的MeshCollider
+			foreach(MeshCollider collider in UnityEngine.Object.FindObjectsOfType(typeof(MeshCollider)))
+			{
+				DestroyImmediate(collider);
+			}
+ 
+			//删除没有用的动画组件
+			foreach(Animation animation in UnityEngine.Object.FindObjectsOfType(typeof(Animation)))
+			{
+				if(animation.clip == null)
+					DestroyImmediate(animation);
+			}
+ 
+	  //应该没有人用Animator吧？ 避免美术弄错我都全部删除了。
+			foreach(Animator animator in UnityEngine.Object.FindObjectsOfType(typeof(Animator)))
+			{
+					DestroyImmediate(animator);
+			}
+		}
+		//保存
+		AssetDatabase.SaveAssets();
+	}
+
+ 如果你的项目中美术已经上传了很多场景，并且你也不知道那个场景有问题，那就快写一个批量删除所有场景的插件吧。
+
+结合上面的代码
+
+	[MenuItem("Tools/批量删除所有场景中的MeshCollider 和Animation")]
+	static public void RemoveAll()
+	{
+		//遍历所有场景
+		foreach (UnityEditor.EditorBuildSettingsScene scene in UnityEditor.EditorBuildSettings.scenes)
+		{
+		  //当场景启动中
+			if (scene.enabled)
+			{
+			 //打开这个场景
+				EditorApplication.OpenScene(scene.path);
+				//删除该场景中的所有MeshCollider 和Animation
+				Remove();
+			}
+		}
+		//保存
+		EditorApplication.SaveScene();
+	}
+
+另外清注意 只有你的场景在BuildSettings页面中注册过UnityEditor.EditorBuildSettings.scenes才能获取场景。如果你的场景没有加到BuildSetting中。 如果想批量添加你可以参考我之前写的文章我还是copy过来吧。
+
+using UnityEngine;
+using System.Collections;
+using UnityEditor;
+using System.Collections.Generic;
+using System.IO;
+public class Easy : Editor {
+ 
+	[MenuItem("Tools/同步所有场景到SceneSetting文件")]
+	static void CheckSceneSetting()
+	{
+		List<string> dirs = new List<string>();
+		GetDirs(Application.dataPath,ref dirs);
+		EditorBuildSettingsScene[] newSettings = new EditorBuildSettingsScene[dirs.Count];
+		for(int i =0; i< newSettings.Length;i++)
+		{
+			newSettings[i] = new EditorBuildSettingsScene(dirs[i],true);
+		}
+		EditorBuildSettings.scenes = newSettings;
+		EditorApplication.SaveAssets();
+	}
+	private static void GetDirs(string dirPath, ref List<string> dirs)
+	{
+		foreach (string path in Directory.GetFiles(dirPath))
+		{
+			if(System.IO.Path.GetExtension(path) == ".unity") 
+			{
+				dirs.Add(path.Substring(path.IndexOf("Assets/")));
+			}
+		}
+		if (Directory.GetDirectories(dirPath).Length > 0)
+		{
+			foreach (string path in Directory.GetDirectories(dirPath))
+				GetDirs(path,ref dirs);
+		}
+	}
+}
+
+		合并drallCall 最简单的办法就是让美术上传模型的时候勾选一下Static，这样Unity会自动帮我们合并DrawCall.我建议你还是不要相信美术了。帮他们做工具吧。。
+
+{{./2.png}}
+
+	   或者你也可以在游戏运行中动态的添加，找一个合适的位置写入如下代码。他会把该游戏对象以及所有子对象全部合并DrawCall。
+
+	StaticBatchingUtility.Combine(gameObject);
+
+		 这样合并DrawCall的很方便，而且也很简单。但是无法修改所有子对象的坐标、旋转、缩放了，但是可以修改父对象。如下图所示，比如我给a 设置了static属性，或者 Combine(a.gameObject) ，那么如果代码中你需要操作b 或者 c 的Transform那么是不行的， 但是你可以操作a。 他会带着 b 和c 一起Transform。
+
+{{./3.png}}
+

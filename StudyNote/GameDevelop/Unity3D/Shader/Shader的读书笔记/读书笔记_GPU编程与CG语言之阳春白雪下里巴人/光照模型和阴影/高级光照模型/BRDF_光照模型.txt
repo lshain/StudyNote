@@ -1,0 +1,124 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-11T17:27:03+08:00
+
+====== BRDF 光照模型 ======
+Created 星期四 11 八月 2016
+
+===== 什么是BRDF 光照模型 =====
+1965 年，Nicodemus, Fred 在论文“Directional reflectance and emissivity of an opaque surface” 中提出了BRDF 的概念。BRDF， Bidirectional Reflectance Distribution Function，中文翻译为“双向反射分布函数”。该函数描述了入射光线
+在非透明物体表面如何进行反射。
+
+BRDF 的结果是一个没有单位的数值，表示在给定入射条件下，某个出射方向上反射光的相对能量，也可以理解为“入射光以特定方向离开的概率”（实时计算机图形学第二版111 页）。如图 23 所示， i w 表示光线入射方向， o w 表示光线出射方向（入射点到视点），则该情况下的BRDF 值表示：光线以i w 方向入射，然后以o w 方向出射的概率，或者光强。这些信息也可以用仪器进行测试记录，并存放在图片上，称为polynomial texture map。
+{{~/Desktop/1111/1.png}}
+
+依据光学原理，BRDF 的计算公式为：
+{{~/Desktop/1111/2.png}}
+
+其中Lr(w0) 表示从 w0 方向反射的光线的辐射亮度（Radiance）； Ei(wi) 表示从 wi 方向入射的光线在辐射照度（Irradiance）。辐射亮度和辐射照度是表示光照性质的光学量，辐射亮度是每单位立体角在垂直于给定方向的平面上的单位正投影面积上的功率。辐射照度则是整个入射表面的功率，等于投射在包括该点的一个面元上的辐射通量dφ 除以该面元的面积dA。故而，从物理光学上我们可以将公式理解为：BRDF 函数计算的是“特定反射方向的光强与入射光强的比例”。所以给定一个具体的BRDF 数学描述后，就可以放到rendering equation 中使用
+
+===== 什么是各向异性 =====
+各向异性(anisotropy)与均向性相反，是指在不同方向具有不同行为的性质，也就是其行为与方向有关。如在物理学上，沿着材料做不同方向的量测，若会出现不同行为，通常称该材料具有某种“各向异性”，这样的材料表面称为各向异性表面（anisotropic surface）；
+
+特殊的晶体结构会导致各向异性，材质表面上存在有组织的细小凹凸槽也会导致各向异性。各向异性反射是指：各向异性表面反射光的一种现象。在生活中我们经常见到各向异性光照效果，例如光滑的炊具上的扇面光斑
+{{~/Desktop/1111/3.png}}
+
+由于材质有组织的细微凹凸结构的不同，各向异性也分为基本的三种类型
+1. 线性各向异性；
+2. 径向各向异性；
+3. 圆柱形各向异性，实际上线性各向异性，单被映像为圆柱形。
+{{~/Desktop/1111/4.png}}
+
+===== Bank BRDF 经验模型 =====
+Bank BRDF 属于经验模型，由于其计算简单，且效果良好，所以该模型在各向异性光照效果的模拟方面非常有用。Bank BRDF 的镜面反射部分可以表达为公式:
+{{~/Desktop/1111/5.png}}
+ks 、ns 分别表示镜面反射系数和高光系数；L 表示入射光线方向、V 表示实现观察方向、T 表示该点的切向量。尤其要注意切向量的计算方法，因为一个三维空间点可能存在无数个切向量，通常我采用“顶点的法向量和视线方向做叉积，其结果作为T。
+{{~/Desktop/1111/6.png}}
+Bank BRDF 渲染效果1
+
+{{~/Desktop/1111/7.png}}
+Bank BRDF 渲染效果2
+
+下面分别给出Bank BRDF 的顶点着色程序和片段着色程序代码。
+**Bank BRDF 的顶点着色程序**
+void main_v(
+	float4 position : POSITION,
+	float4 normal : NORMAL,
+	out float4 oPosition : POSITION,
+	out float3 worldPos : TEXCOORD0,
+	out float3 worldNormal : TEXCOORD1,
+	uniform float4x4 modelViewProj,
+	uniform float4x4 worldMatrix,
+	uniform float4x4 worldMatrix_IT)
+{
+	oPosition = mul(modelViewProj, position);
+	worldPos = mul(worldMatrix, position).xyz;
+	worldNormal = mul(worldMatrix_IT, normal).xyz;
+}
+
+**Bank BRDF 片段着色程序**
+void main_f(
+	float4 position : TEXCOORD0,
+	float3 normal : TEXCOORD1,
+	out float4 color : COLOR,
+	uniform float3 globalAmbient,
+	uniform float3 lightColor,
+	uniform float3 lightPosition,
+	uniform float3 eyePosition,
+	uniform float3 Ka,
+	uniform float3 Kd,
+	uniform float3 Ks,
+	uniform float shininess)
+{
+	float3 P = position.xyz;
+	float3 N = normalize(normal);
+	float3 ambient = Ka * globalAmbient; //计算环境光分量
+	float3 L = normalize(lightPosition - P);
+	float ln = max(dot(L, N), 0);
+	float3 diffuse = Kd * lightColor *ln; // 计算有向光漫反射分量
+	// 计算镜面反射分量
+	float3 V = normalize(eyePosition - P);
+	float3 H = normalize(L + V);
+	float3 specular = float3(0.0,0.0,0.0);
+	bool back = (dot(V,N)>0) && (dot(L,N));
+	if(back)
+	{
+		float3 T = normalize(cross(N,V)); //计算顶点切向量
+		float a = dot(L,T);
+		float b = dot(V,T);
+		float c = sqrt(1-pow(a,2.0))* sqrt(1-pow(b,2.0)) - a*b; //计算Bank BRDF 系数
+		float brdf = Ks* pow(c, shininess);
+		specular = brdf * lightColor *ln;
+	}
+	color.xyz = ambient + diffuse + specular;
+	color.w = 1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,372 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-06T15:16:10+08:00
+
+====== Unity协程（Coroutine）原理深入剖析 ======
+Created 星期一 06 六月 2016
+
+转自：http://dsqiu.iteye.com/blog/2029701
+
+		记得去年6月份刚开始实习的时候，当时要我写网络层的结构，用到了协程，当时有点懵，完全不知道Unity协程的执行机制是怎么样的，只是知道函数的返回值是IEnumerator类型，函数中使用yield return ，就可以通过StartCoroutine调用了。后来也是一直稀里糊涂地用，上网google些基本都是例子，很少能帮助深入理解Unity协程的原理的。
+
+		本文只是从Unity的角度去分析理解协程的内部运行原理，而不是从C#底层的语法实现来介绍（后续有需要再进行介绍），一共分为三部分：
+	
+		**线程（Thread）和协程（Coroutine） **
+	**	Unity中协程的执行原理**
+	**	IEnumerator & Coroutine**
+
+		之前写过一篇《Unity协程(Coroutine)管理类——TaskManager工具分享》主要是介绍TaskManager实现对协程的状态控制，没有Unity后台实现的协程的原理进行深究。虽然之前自己对协程还算有点了解了，但是对Unity如何执行协程的还是一片空白，在UnityGems.com上看到两篇讲解Coroutine，如数家珍，当我看到Advanced Coroutine后面的Hijack类时，顿时觉得十分精巧，眼前一亮，遂动了写文分享之。
+
+=== 线程（Thread）和协程（Coroutine） ===
+		D.S.Qiu觉得使用协程的作用一共有两点：1）延时（等待）一段时间执行代码；2）等某个操作完成之后再执行后面的代码。总结起来就是一句话：控制代码在特定的时机执行。
+		很多初学者，都会下意识地觉得协程是异步执行的，都会觉得协程是C# 线程的替代品，是Unity不使用线程的解决方案。
+		所以首先，请你牢记：协程不是线程，也不是异步执行的。协程和 MonoBehaviour 的 Update函数一样也是在MainThread中执行的。使用协程你不用考虑同步和锁的问题。
+
+=== Unity中协程的执行原理 ===
+		UnityGems.com给出了协程的定义：
+			   A coroutine is a function that is executed partially and, presuming suitable conditions are met, will be resumed at some point in the future until its work is done.
+
+		即协程是一个分部执行，遇到条件（yield return 语句）会挂起，直到条件满足才会被唤醒继续执行后面的代码。
+		Unity在每一帧（Frame）都会去处理对象上的协程。Unity主要是在Update后去处理协程（检查协程的条件是否满足），但也有写特例：
+
+		从上图的剖析就明白，协程跟Update()其实一样的，都是Unity每帧对会去处理的函数（如果有的话）。如果MonoBehaviour 是处于激活（active）状态的而且yield的条件满足，就会协程方法的后面代码。还可以发现：如果在一个对象的前期调用协程，协程会立即运行到第一个 yield return 语句处，如果是 yield return null ，就会在同一帧再次被唤醒。如果没有考虑这个细节就会出现一些奇怪的问题『1』。
+
+		『1』注 图和结论都是从UnityGems.com 上得来的，经过下面的验证发现与实际不符，D.S.Qiu用的是Unity 4.3.4f1 进行测试的。经过测试验证，协程至少是每帧的LateUpdate()后去运行。
+
+		下面使用 yield return new WaitForSeconds(1f); 在Start,Update 和 LateUpdate 中分别进行测试：
+using UnityEngine;
+using System.Collections;
+
+public class TestCoroutine : MonoBehaviour {
+
+	private bool isStartCall = false;  //Makesure Update() and LateUpdate() Log only once
+	private bool isUpdateCall = false;
+	private bool isLateUpdateCall = false;
+	// Use this for initialization
+	void Start () {
+		if (!isStartCall)
+		{
+			Debug.Log("Start Call Begin");
+			StartCoroutine(StartCoutine());
+			Debug.Log("Start Call End");
+			isStartCall = true;
+		}
+	
+	}
+	IEnumerator StartCoutine()
+	{
+        
+		Debug.Log("This is Start Coroutine Call Before");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Start Coroutine Call After");
+           
+	}
+	// Update is called once per frame
+	void Update () {
+		if (!isUpdateCall)
+		{
+			Debug.Log("Update Call Begin");
+			StartCoroutine(UpdateCoutine());
+			Debug.Log("Update Call End");
+			isUpdateCall = true;
+		}
+	}
+	IEnumerator UpdateCoutine()
+	{
+		Debug.Log("This is Update Coroutine Call Before");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Update Coroutine Call After");
+	}
+	void LateUpdate()
+	{
+		if (!isLateUpdateCall)
+		{
+			Debug.Log("LateUpdate Call Begin");
+			StartCoroutine(LateCoutine());
+			Debug.Log("LateUpdate Call End");
+			isLateUpdateCall = true;
+		}
+	}
+	IEnumerator LateCoutine()
+	{
+		Debug.Log("This is Late Coroutine Call Before");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Late Coroutine Call After");
+	}
+}
+
+得到日志输入结果如下：
+{{./1.jpg}}
+
+		然后将yield return new WaitForSeconds(1f);改为 yield return null; 发现日志输入结果和上面是一样的，没有出现上面说的情况：
+using UnityEngine;
+using System.Collections;
+
+public class TestCoroutine : MonoBehaviour {
+
+	private bool isStartCall = false;  //Makesure Update() and LateUpdate() Log only once
+	private bool isUpdateCall = false;
+	private bool isLateUpdateCall = false;
+	// Use this for initialization
+	void Start () {
+		if (!isStartCall)
+		{
+			Debug.Log("Start Call Begin");
+			StartCoroutine(StartCoutine());
+			Debug.Log("Start Call End");
+			isStartCall = true;
+		}
+	
+	}
+	IEnumerator StartCoutine()
+	{
+        
+		Debug.Log("This is Start Coroutine Call Before");
+		yield return null;
+		Debug.Log("This is Start Coroutine Call After");
+           
+	}
+	// Update is called once per frame
+	void Update () {
+		if (!isUpdateCall)
+		{
+			Debug.Log("Update Call Begin");
+			StartCoroutine(UpdateCoutine());
+			Debug.Log("Update Call End");
+			isUpdateCall = true;
+		}
+	}
+	IEnumerator UpdateCoutine()
+	{
+		Debug.Log("This is Update Coroutine Call Before");
+		yield return null;
+		Debug.Log("This is Update Coroutine Call After");
+	}
+	void LateUpdate()
+	{
+		if (!isLateUpdateCall)
+		{
+			Debug.Log("LateUpdate Call Begin");
+			StartCoroutine(LateCoutine());
+			Debug.Log("LateUpdate Call End");
+			isLateUpdateCall = true;
+		}
+	}
+	IEnumerator LateCoutine()
+	{
+		Debug.Log("This is Late Coroutine Call Before");
+		yield return null;
+		Debug.Log("This is Late Coroutine Call After");
+	}
+}
+
+		『今天意外发现Monobehaviour的函数执行顺序图，发现协程的运行确实是在LateUpdate之后，下面附上：』
+{{./2.png}}
+
+		前面在介绍TaskManager工具时，说到MonoBehaviour 没有针对特定的协程提供Stop方法，其实不然，可以通过MonoBehaviour enabled = false 或者 gameObject.active = false 就可以停止协程的执行『2』。
+
+		经过验证，『2』的结论也是错误的，正确的结论是，MonoBehaviour.enabled = false 协程会照常运行，但 gameObject.SetActive(false) 后协程却全部停止，即使在Inspector把  gameObject 激活还是没有继续执行：
+using UnityEngine;
+using System.Collections;
+
+public class TestCoroutine : MonoBehaviour {
+
+	private bool isStartCall = false;  //Makesure Update() and LateUpdate() Log only once
+	private bool isUpdateCall = false;
+	private bool isLateUpdateCall = false;
+	// Use this for initialization
+	void Start () {
+		if (!isStartCall)
+		{
+			Debug.Log("Start Call Begin");
+			StartCoroutine(StartCoutine());
+			Debug.Log("Start Call End");
+			isStartCall = true;
+		}
+	
+	}
+	IEnumerator StartCoutine()
+	{
+        
+		Debug.Log("This is Start Coroutine Call Before");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Start Coroutine Call After");
+           
+	}
+	// Update is called once per frame
+	void Update () {
+		if (!isUpdateCall)
+		{
+			Debug.Log("Update Call Begin");
+			StartCoroutine(UpdateCoutine());
+			Debug.Log("Update Call End");
+			isUpdateCall = true;
+			this.enabled = false;
+			//this.gameObject.SetActive(false);
+		}
+	}
+	IEnumerator UpdateCoutine()
+	{
+		Debug.Log("This is Update Coroutine Call Before");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Update Coroutine Call After");
+		yield return new WaitForSeconds(1f);
+		Debug.Log("This is Update Coroutine Call Second");
+	}
+	void LateUpdate()
+	{
+		if (!isLateUpdateCall)
+		{
+			Debug.Log("LateUpdate Call Begin");
+			StartCoroutine(LateCoutine());
+			Debug.Log("LateUpdate Call End");
+			isLateUpdateCall = true;
+
+		}
+	}
+	IEnumerator LateCoutine()
+	{
+		Debug.Log("This is Late Coroutine Call Before");
+		yield return null;
+		Debug.Log("This is Late Coroutine Call After");
+	}
+}
+
+ 先在Update中调用 this.enabled = false; 得到的结果：
+{{./3.jpg}}
+
+然后把 this.enabled = false; 注释掉，换成 this.gameObject.SetActive(false); 得到的结果如下：
+{{./4.jpg}}
+
+	   整理得到：通过设置MonoBehaviour脚本的enabled对协程是没有影响的，但如果 gameObject.SetActive(false) 则已经启动的协程则完全停止了，即使在Inspector把gameObject 激活还是没有继续执行。也就说协程虽然是在MonoBehvaviour启动的（StartCoroutine）但是协程函数的地位完全是跟MonoBehaviour是一个层次的，不受MonoBehaviour的状态影响，但跟MonoBehaviour脚本一样受gameObject 控制，也应该是和MonoBehaviour脚本一样每帧“轮询” yield 的条件是否满足。
+
+yield 后面可以有的表达式：
+
+	   a) null - the coroutine executes the next time that it is eligible
+
+	   b) WaitForEndOfFrame - the coroutine executes on the frame, after all of the rendering and GUI is complete
+
+	   c) WaitForFixedUpdate - causes this coroutine to execute at the next physics step, after all physics is calculated
+
+	   d) WaitForSeconds - causes the coroutine not to execute for a given game time period
+
+	   e) WWW - waits for a web request to complete (resumes as if WaitForSeconds or null)
+
+	   f) Another coroutine - in which case the new coroutine will run to completion before the yielder is resumed
+
+值得注意的是 WaitForSeconds()受Time.timeScale影响，当Time.timeScale = 0f 时，yield return new WaitForSecond(x) 将不会满足。
+
+=== IEnumerator & Coroutine ===
+		协程其实就是一个IEnumerator（迭代器），IEnumerator 接口有两个方法 Current 和 MoveNext() ，前面介绍的 TaskManager 就是利用者两个方法对协程进行了管理，只有当MoveNext()返回 true时才可以访问 Current，否则会报错。迭代器方法运行到 yield return 语句时，会返回一个expression表达式并保留当前在代码中的位置。 当下次调用迭代器函数时执行从该位置重新启动。
+
+		Unity在每帧做的工作就是：调用 协程（迭代器）MoveNext() 方法，如果返回 true ，就从当前位置继续往下执行。
+
+Hijack
+		 这里在介绍一个协程的交叉调用类 Hijack（参见附件）：
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using System.Collections;
+ 
+[RequireComponent(typeof(GUIText))]
+public class Hijack : MonoBehaviour {
+ 
+	//This will hold the counting up coroutine
+	IEnumerator _countUp;
+	//This will hold the counting down coroutine
+	IEnumerator _countDown;
+	//This is the coroutine we are currently
+	//hijacking
+	IEnumerator _current;
+ 
+	//A value that will be updated by the coroutine
+	//that is currently running
+	int value = 0;
+ 
+	void Start()
+	{
+		//Create our count up coroutine
+		_countUp = CountUp();
+		//Create our count down coroutine
+		_countDown = CountDown();
+		//Start our own coroutine for the hijack
+		StartCoroutine(DoHijack());
+	}
+ 
+	void Update()
+	{
+		//Show the current value on the screen
+		guiText.text = value.ToString();
+	}
+ 
+	void OnGUI()
+	{
+		//Switch between the different functions
+		if(GUILayout.Button("Switch functions"))
+		{
+			if(_current == _countUp)
+				_current = _countDown;
+			else
+				_current = _countUp;
+		}
+	}
+ 
+	IEnumerator DoHijack()
+	{
+		while(true)
+		{
+			//Check if we have a current coroutine and MoveNext on it if we do
+			if(_current != null && _current.MoveNext())
+			{
+				//Return whatever the coroutine yielded, so we will yield the
+				//same thing
+				yield return _current.Current;
+			}
+			else
+				//Otherwise wait for the next frame
+				yield return null;
+		}
+	}
+ 
+	IEnumerator CountUp()
+	{
+		//We have a local increment so the routines
+		//get independently faster depending on how
+		//long they have been active
+		float increment = 0;
+		while(true)
+		{
+			//Exit if the Q button is pressed
+			if(Input.GetKey(KeyCode.Q))
+				break;
+			increment+=Time.deltaTime;
+			value += Mathf.RoundToInt(increment);
+			yield return null;
+		}
+	}
+ 
+	IEnumerator CountDown()
+	{
+		float increment = 0f;
+		while(true)
+		{
+			if(Input.GetKey(KeyCode.Q))
+				break;
+			increment+=Time.deltaTime;
+			value -= Mathf.RoundToInt(increment);
+			//This coroutine returns a yield instruction
+			yield return new WaitForSeconds(0.1f);
+		}
+	}
+}
+
+上面的代码实现是两个协程交替调用，对有这种需求来说实在太精妙了。
+
+小结：
+
+		今天仔细看了下UnityGems.com 有关Coroutine的两篇文章，虽然第一篇（参考①）现在验证的结果有很多错误，但对于理解协程还是不错的，尤其是当我发现Hijack这个脚本时，就迫不及待分享给大家。
+
+		本来没觉得会有UnityGems.com上的文章会有错误的，无意测试了发现还是有很大的出入，当然这也不是说原来作者没有经过验证就妄加揣测，D.S.Qiu觉得很有可能是Unity内部的实现机制改变了，这种东西完全可以改动，Unity虽然开发了很多年了，但是其实在实际开发中还是有很多坑，越发觉得Unity的无力，虽说容易上手，但是填坑的功夫也是必不可少的。      
+
+		看来很多结论还是要通过自己的验证才行，贸然复制粘贴很难出真知，切记！

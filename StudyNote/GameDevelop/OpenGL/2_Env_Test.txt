@@ -1,0 +1,36 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-04T16:46:50+08:00
+
+====== 2 Env Test ======
+Created 星期一 04 一月 2016
+
+测试程序
+#include<gl/glut.h>
+void renderScene(void)
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
+	glBegin(GL_TRIANGLES);
+	glVertex3f(-0.5, -0.5, 0.0);
+	glVertex3f(0.5, 0.0, 0.0);
+	glVertex3f(0.0, 0.5, 0.0);
+	glEnd();
+	glutSwapBuffers();
+}
+
+int main(int argc, char* argv[])
+{
+	glutInit(&argc, (char**)argv);
+	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
+	glutInitWindowPosition(100, 100);
+	glutInitWindowSize(320, 320);
+	glutCreateWindow("Hello OpenGL");
+	glutDisplayFunc(renderScene);
+	glutMainLoop();//enters the GLUT event processing loop.
+	return 0;
+}
+
+注意：添加库依赖 opengl32.lib;glu32.lib;glut32.lib
+	  添加宏定义 GLUT_BUILDING_LIB
+

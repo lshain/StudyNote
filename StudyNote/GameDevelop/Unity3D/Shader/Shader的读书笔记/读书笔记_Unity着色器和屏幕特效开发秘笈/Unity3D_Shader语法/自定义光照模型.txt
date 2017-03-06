@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-24T14:43:26+08:00
+
+====== 自定义光照模型 ======
+Created 星期三 24 八月 2016
+
+#pragma surface surf CustomLightMode
+
+inline float4 LightingCustomLightMode(SurfaceOutout s, fixed3 lightDir, fixed atten)
+{
+}
+
+通过声明一个新的光照模型函数我们就能创建一个新的光照模型了，当完成了这个步骤后，便可以将函数名替换成你想要的任何名字。函数名的格式是：Lighting<任何名字>。你可以使用三种格式的光照模型函数：
+
+half4 LightingName (SurfaceOutput s, half3 lightDir, half atten){}
+该函数用于不需要视角方向的前向着色。
+
+half4 LightingName (SurfaceOutput s, half3 lightDir, half3 viewDir, half atten){}
+该函数用于需要视角方向的前向着色。
+
+half4 LightingName_PrePass (SurfaceOutput s, half4 light){}
+该函数用于需要使用延迟着色的项目。

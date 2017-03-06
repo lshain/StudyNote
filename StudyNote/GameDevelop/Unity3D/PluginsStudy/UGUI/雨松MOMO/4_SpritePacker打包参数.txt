@@ -1,0 +1,175 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-05T22:25:06+08:00
+
+====== 4 SpritePacker打包参数 ======
+Created 星期二 05 四月 2016
+
+转自：http://www.xuanyusong.com/archives/3315
+
+上篇文章说了UGUI上图集的使用，这一篇继续看看SpritePacker怎么打包图集。我觉得我们有必要对比一下NGUI的图集，NGUI在打包图集的时候图集的默认格式是RGBA32，也就是支持带透明通道的图片，这样一张1024的图集也就是4M内存。为了优化图集，我们可以选择把带透明通道图片 和 不带透明通道的图片分开打图集，这样可以减少内存的占用量。
+
+然而着一切的一切在NGUI上都需要手动操作，而SpritePacker则全自动完成。Sprite上的Packing Tag 同一标识的图片UGUI会把相同图片格式的图片打包成同一图集。如下图所示，MomoAtals和RUORUOAtlas就是Packing Tag的标识符，那么此时根据这两个标识符SpritePacker将打出两个图集出来。 因为MomoAtlas这些图片中，一部分是RGBA32格式，还有一部分是ETC 4bits格式，那么MomoAtlas将被在分成两个图集，就是尾缀带Group的。
+
+{{./1.png}}
+
+打包Sprite Packer有两个打包模式，如下图所示分别是DefaultPackerPolicy和TightPackerPolicy。
+
+{{./2.png}}
+
+DefaultPackerPolicy：是默认的打包方式，也是矩形打包方式。他会把所有的小图按照矩形的方式来排列，如果宽高不一样的图片，它们会自动补起。
+
+TightPackerPolicy：是紧密打包方式，也就是尽可能的把图片都打包在图集上，这种方式要比DefaultPackerPolicy打包的图片更多一些，也就是更省空间。
+
+{{./3.png}}
+
+根据图集的布局可以清晰的看到TightPackerPolicy图集更加紧密。
+
+{{./4.png}}
+
+DefaultPackerPolicy模式打包是unity所推荐的，理论上所有图集都可以使用DefaultPackerPolicy来完成打包。还有一个特性就是可以让图集中某几张图片单独采取DefaultPackerPolicy或者TightPackerPolicy的方式。
+
+如下图所示，比如当前打包图集是DefaultPackerPolicy 那么小图中[TIGHT]开头的就表示单独这张图采用TightPackerPolicy打包模式。
+
+{{./5.png}}
+
+如下图所示，比如当前打包图集是TightPackerPolicy 那么小图中[RECT]开头的就表示单独这张图采用DefaultPackerPolicy打包模式。
+
+Unity只提供了这两种图集打包方法。假如我想自定义打包方式咋办?比如我想设置图片打包格式，或者图集大小等等怎么办？把如下代码放在Editor文件夹下， 在代码里面就可以设置图集的属性了。
+
+using System;
+using System.Linq;
+using UnityEngine;
+using UnityEditor;
+using UnityEditor.Sprites;
+using System.Collections.Generic;
+ 
+// DefaultPackerPolicy will pack rectangles no matter what Sprite mesh type is unless their packing tag contains "[TIGHT]".
+class DefaultPackerPolicySample : UnityEditor.Sprites.IPackerPolicy
+{
+	protected class Entry
+	{
+		public Sprite            sprite;
+		public AtlasSettings     settings;
+		public string            atlasName;
+		public SpritePackingMode packingMode;
+	}
+	
+	public virtual int GetVersion() { return 1; }
+	
+	protected virtual string TagPrefix { get { return "[TIGHT]"; } }
+	protected virtual bool AllowTightWhenTagged { get { return true; } }
+	
+	public void OnGroupAtlases(BuildTarget target, PackerJob job, int[] textureImporterInstanceIDs)
+	{
+		List<Entry> entries = new List<Entry>();
+		
+		foreach (int instanceID in textureImporterInstanceIDs)
+		{
+			TextureImporter ti = EditorUtility.InstanceIDToObject(instanceID) as TextureImporter;
+			
+			TextureImportInstructions ins = new TextureImportInstructions();
+			ti.ReadTextureImportInstructions(ins, target);
+			
+			TextureImporterSettings tis = new TextureImporterSettings();
+			ti.ReadTextureSettings(tis);
+			
+			Sprite[] sprites = AssetDatabase.LoadAllAssetRepresentationsAtPath(ti.assetPath).Select(x => x as Sprite).Where(x => x != null).ToArray();
+			foreach (Sprite sprite in sprites)
+			{ 
+								//在这里设置每个图集的参数
+				Entry entry = new Entry();
+				entry.sprite = sprite;
+				entry.settings.format = ins.desiredFormat;
+				entry.settings.usageMode = ins.usageMode;
+				entry.settings.colorSpace = ins.colorSpace;
+				entry.settings.compressionQuality = ins.compressionQuality;
+				entry.settings.filterMode = Enum.IsDefined(typeof(FilterMode), ti.filterMode) ? ti.filterMode : FilterMode.Bilinear;
+				entry.settings.maxWidth = 1024;
+				entry.settings.maxHeight = 1024;
+				entry.atlasName = ParseAtlasName(ti.spritePackingTag);
+				entry.packingMode = GetPackingMode(ti.spritePackingTag, tis.spriteMeshType);
+				
+				entries.Add(entry);
+			}
+			
+			Resources.UnloadAsset(ti);
+		}
+		
+		// First split sprites into groups based on atlas name
+		var atlasGroups =
+			from e in entries
+				group e by e.atlasName;
+		foreach (var atlasGroup in atlasGroups)
+		{
+			int page = 0;
+			// Then split those groups into smaller groups based on texture settings
+			var settingsGroups =
+				from t in atlasGroup
+					group t by t.settings;
+			foreach (var settingsGroup in settingsGroups)
+			{
+				string atlasName = atlasGroup.Key;
+				if (settingsGroups.Count() > 1)
+					atlasName += string.Format(" (Group {0})", page);
+				
+				job.AddAtlas(atlasName, settingsGroup.Key);
+				foreach (Entry entry in settingsGroup)
+				{
+					job.AssignToAtlas(atlasName, entry.sprite, entry.packingMode, SpritePackingRotation.None);
+				}
+				
+				++page;
+			}
+		}
+	}
+	
+	protected bool IsTagPrefixed(string packingTag)
+	{
+		packingTag = packingTag.Trim();
+		if (packingTag.Length < TagPrefix.Length)
+			return false;
+		return (packingTag.Substring(0, TagPrefix.Length) == TagPrefix);
+	}
+	
+	private string ParseAtlasName(string packingTag)
+	{
+		string name = packingTag.Trim();
+		if (IsTagPrefixed(name))
+			name = name.Substring(TagPrefix.Length).Trim();
+		return (name.Length == 0) ? "(unnamed)" : name;
+	}
+	
+	private SpritePackingMode GetPackingMode(string packingTag, SpriteMeshType meshType)
+	{
+		if (meshType == SpriteMeshType.Tight)
+			if (IsTagPrefixed(packingTag) == AllowTightWhenTagged)
+				return SpritePackingMode.Tight;
+		return SpritePackingMode.Rectangle;
+	}
+}
+
+如下图所示，SpritePacker就多出了一个打包图集的选项。
+
+{{./6.png}}
+
+有可能我们会同时把很多图片都拖入unity中，虽然可以全选在设置图片的pack tag，但是我觉得最好全自动完成，比如我们把图片放在不同的文件夹下，那么文件夹的名子就可以用做Atals的名子。最后在分享一条这样的脚本。
+
+using UnityEngine;
+using System.Collections;
+using UnityEditor;
+using System.IO;
+ 
+public class  Post : AssetPostprocessor 
+{
+	void OnPostprocessTexture (Texture2D texture) 
+	{
+		string AtlasName =  new DirectoryInfo(Path.GetDirectoryName(assetPath)).Name;
+		TextureImporter textureImporter  = assetImporter as TextureImporter;
+		textureImporter.textureType = TextureImporterType.Sprite;
+		textureImporter.spritePackingTag = AtlasName;
+		textureImporter.mipmapEnabled = false;
+	}
+ 
+}
+

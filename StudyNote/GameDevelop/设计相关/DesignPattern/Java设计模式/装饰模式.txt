@@ -1,0 +1,55 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:04:13+08:00
+
+====== 装饰模式 ======
+Created 星期一 15 八月 2016
+
+装饰模式:动态地给一个对象添加一些额外的职责。就增加功能来说，Decorator模式相比生成子类更为灵活。以下是例子：
+
+public class SquarePeg implements Work{
+	public void insert() {
+		System.out.println("方形粧插入"); 
+	} 
+}
+
+public class Decorator implements Work{  
+	private Work work;
+	private ArrayList others = new ArrayList();
+	public Decorator(Work work){
+		this.work = work;
+		others.add("挖坑");
+		others.add("钉木板"); 
+	}
+
+	public void insert() {
+		newMethod(); 
+	}
+
+	public void newMethod(){
+		//添加的工作 
+		otherMethod();
+
+		//原有的工作 
+		work.insert(); 
+	}
+
+	public void otherMethod(){
+		ListIterator listIterator = others.listIterator();
+
+		while(listIterator.hasNext()){
+			System.out.println((String)listIterator.next()+"正在进行"); 
+		} 
+	} 
+}
+
+//测试类 
+public class Test {  
+	public static void main(String[] args) {
+		Work squarePeg = new SquarePeg();
+		Work decorator = new Decorator(squarePeg);
+		decorator.insert(); 
+	}
+}
+
+

@@ -1,0 +1,280 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-16T17:27:28+08:00
+
+====== 3 让sprite sheets动起来 ======
+Created 星期四 16 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/18662601
+
+这次内容主要讲如何使用sprite sheets制作2D动画。在Unity中，实际上已经有很多插件可以完成这个工作，例如2dTookit，新版的Unity中支持2D应该也会提供类似的功能了。虽然如此，我还是希望通过这篇文章可以更深入地理解2D动画的原理。说到动画的原理，先要提到一个名词，sprite atlas，也可以称为image sequence，实际上就是一张大图中包含了很多张小图，如下：
+{{./1.png}}
+当我们按照一定速率滚动这张图时，就会发现图片动起来了，这我们应该都有经验，以前看小人书快速翻动时就发现小人在动。这里实际上也是这个原理。
+
+=== 准备工作 ===
+1. 准备一张sprite sheet，你可以自己画一张也可以从网上下载一张，或是直接使用本书资源。这张图不需要太复杂，只需要包含一组图片序列来供滚动浏览就行。下面是本书中的实例图片（5084_Code/Unity assets/5084_02_UnityAssets/Textures/Chapter02_SpriteSheet005.png）：
+{{./2.png}}
+
+2. 创建一个新的Shader和一个新的Material，名称分别为AnimateSprites；
+3. 新建一个场景，名为AnimateSprites_Scene，在场景中添加平行光，创建一个新的平面，并把上一步中的Material设为其材质，将第一步中的图片拖到Material的图片上。最后如下所示：
+{{./3.png}}
+
+=== 实现 ===
+1. 打开Shader编辑器，向Properties 区域添加三个新的Properties：
+Properties {  
+	_MainTex ("Base (RGB)", 2D) = "white" {}  
+      
+	// Create the properties below  
+	_TexWidth ("Sheet Width", float) = 0.0  
+	_CellAmount ("Cell Amount", float) = 0.0  
+	_Speed ("Speed", Range(0.01, 32)) = 12  
+}
+
+2. 在SubShader区域为每个新增的Properties增加对应的引用，以便在代码中使用它们的值：
+
+CGPROGRAM  
+#pragma surface surf Lambert  
+  
+sampler2D _MainTex;  
+  
+//Create the connection to the properties inside of the   
+//CG program  
+float _TexWidth;  
+float _CellAmount;  
+float _Speed; 
+
+下面更改surf函数。
+
+3. 将_MainTex的UV坐标先存储到单独的变量中：
+//Lets store our UVs in a seperate variable  
+float2 spriteUV = IN.uv_MainTex;
+
+之后，我们将使用该变量计算新的UV坐标。
+
+4. 下面，我们需要计算每个小图的宽度，最后计算得到每个小图宽度占整体的百分比。
+原书中代码如下：
+//Lets calculate the width of a singe cell in our  
+//sprite sheet and get a uv percentage that each cel takes up.  
+float cellPixelWidth = _TexWidth/_CellAmount;  
+float cellUVPercentage = cellPixelWidth/_TexWidth; 
+
+但通过观察代码可以发现，缩短为一行即可：
+//Lets calculate the width of a singe cell in our  
+//sprite sheet and get a uv percentage that each cel takes up.  
+float cellUVPercentage = 1.0/_CellAmount; 
+
+对于示例图片，其宽度为512，包含了9张小图，Inspector中配置如下：
+{{./4.png}}
+
+5. 下面，通过得到系统时间来计算需要在原图上的偏移量，来得到不同的小图：
+//Lets get a stair step value out of time so we can increment  
+//the uv offset  
+float timeVal = fmod(_Time.y * _Speed, _CellAmount);  
+timeVal = ceil(timeVal); 
+
+6. 最后，计算在X方向上的最终偏移量。
+原书中代码如下：
+//Animate the uv's forward by the width precentage of   
+//each cell  
+float xValue = spriteUV.x;  
+xValue += cellUVPercentage * timeVal * _CellAmount;  
+xValue *= cellUVPercentage;  
+
+同样，观察cellUVPercentage的计算式，可以简化上述代码如下：
+//Animate the uv's forward by the width precentage of   
+//each cell  
+float xValue = spriteUV.x;  
+xValue += timeVal;  
+xValue *= cellUVPercentage; 
+
+7. 应用最终偏移量，显示到plane上：
+spriteUV = float2(xValue, spriteUV.y);  
+  
+half4 c = tex2D (_MainTex, spriteUV);  
+o.Albedo = c.rgb;  
+o.Alpha = c.a;  
+
+最终Shader代码如下：
+Shader "Custom/AnimateSprites" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+          
+		// Create the properties below  
+		_TexWidth ("Sheet Width", float) = 0.0  
+		_CellAmount ("Cell Amount", float) = 0.0  
+		_Speed ("Speed", Range(0.01, 32)) = 12  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+          
+		//Create the connection to the properties inside of the   
+		//CG program  
+		float _TexWidth;  
+		float _CellAmount;  
+		float _Speed;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			//Lets store our UVs in a seperate variable  
+			float2 spriteUV = IN.uv_MainTex;  
+              
+			//Lets calculate the width of a singe cell in our  
+			//sprite sheet and get a uv percentage that each cel takes up.  
+			float cellUVPercentage = 1.0/_CellAmount;  
+              
+			//Lets get a stair step value out of time so we can increment  
+			//the uv offset  
+			float timeVal = fmod(_Time.y * _Speed, _CellAmount);  
+			timeVal = ceil(timeVal);  
+              
+			//Animate the uv's forward by the width precentage of   
+			//each cell  
+			float xValue = spriteUV.x;  
+			xValue += timeVal;  
+			xValue *= cellUVPercentage;  
+              
+			spriteUV = float2(xValue, spriteUV.y);  
+              
+			half4 c = tex2D (_MainTex, spriteUV);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+保存后，点击运行即可看到动画效果。
+
+=== 解释 ===
+
+为了每刻只显示一张小图，我们需要将sprite atlas进行放缩，这就需要计算放缩比例cellUVPercentage。
+float cellUVPercentage = 1.0/_CellAmount;  
+事例中_CellAmount为9，则cellUVPercentage为0.11。
+
+下面根据时间计算偏移量，这些偏移量随时间增大而且为整数，直到增大为小图的数目大小。
+float timeVal = fmod(_Time.y * _Speed, _CellAmount);  
+timeVal = ceil(timeVal);
+
+这需要使用CGFX的内置函数fmod。
+{{./5.png}}
+
+如上所示，fmod函数将返回x除以y的余数。示例中，fmod函数将循环返回范围为0至9之间的小数。为了得到整数，再使用ceil函数向上取整。
+{{./6.png}}
+
+下面这部分代码最难理解：
+float xValue = spriteUV.x;  
+xValue += timeVal;  
+xValue *= cellUVPercentage;
+
+第一行首先声明一个新的变量xValue，用于存储用于图片采样的x坐标。它首先被初始为surf函数的输入参数In的横坐标。类型为Input的输入参数In代表输入的texture的UV坐标，范围为0到1。第二行向原值加上小图的整数偏移量，最后为了只显示一张小图，我们还需将x值乘以小图所占百分比cellUVPercentage。
+
+为了理解，我们举例来说。假设此时timeVal值为0，即显示第一张小图，则此时xValue的范围将会是 (0 + 0) * 0.11 = 0至(1 + 0) * 0.11 = 0.11，即第一张小图对应的贴图范围。时间推进，当timeVal值增大为1，即需要显示第二张小图时，xValue值范围将是 (0 + 1) * 0.11 = 0.11至(1 + 1) * 0.11 = 0.22，即第二张小图对应的贴图范围。这样就按照顺序显示小图，从而让整个画面动起来了。
+
+=== 扩展 ===
+在上例中，我们只需要偏移x值即可。但有时，x和y方向都需要进行偏移来移动小图。如下图：
+{{./7.png}}
+
+这时你只需要像移动x方向那样移动y即可。虽然这样可以达到动画要求，但是这张在Shader端开发的方法会添加过多的Shader指令，从而造成程序性能下降。
+为了改善这一情况，我们可以将帧偏移选择的代码转移到C#脚本中，从而让CPU来分担GPU的部分负担。这种同时使用CPU和GPU，让其配合相互工作的方法在优化性能方面非常有用。按照这种想法我们改写上述Shader代码，并创建一个新的C#代码，SpriteAnimator.cs，并将其拖拽到plane上面。
+更改后的Shader代码如下：
+Shader "Custom/AnimateSprites" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+          
+		// Create the properties below  
+		_CellAmount ("Cell Amount", float) = 0.0  
+		_TimeValue ("Time Value", float) = 0.0  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+          
+		//Create the connection to the properties inside of the   
+		//CG program  
+		float _CellAmount;  
+		float _TimeValue;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		void surf (Input IN, inout SurfaceOutput o) {  
+			//Lets store our UVs in a seperate variable  
+			float2 spriteUV = IN.uv_MainTex;  
+              
+			//Lets calculate the width of a singe cell in our  
+			//sprite sheet and get a uv percentage that each cel takes up.  
+			float cellUVPercentage = 1.0/_CellAmount;  
+              
+			//Animate the uv's forward by the width precentage of   
+			//each cell  
+			float xValue = spriteUV.x;  
+			xValue += _TimeValue;  
+			xValue *= cellUVPercentage;  
+              
+			spriteUV = float2(xValue, spriteUV.y);  
+              
+			half4 c = tex2D (_MainTex, spriteUV);  
+			o.Albedo = c.rgb;  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+C#代码如下：
+using UnityEngine;  
+using System.Collections;  
+  
+public class SpriteAnimator : MonoBehaviour   
+{  
+  
+	public float speed = 5.0f;  
+	public int cellAmount = 0;   
+  
+	float timeValue = 0.0f;  
+  
+	void Start ()  
+	{  
+		transform.renderer.material.SetFloat("_CellAmount", cellAmount);  
+	}  
+  
+	// Update is called once per frame  
+	void FixedUpdate ()   
+	{  
+		timeValue = Mathf.Ceil(Time.time * speed % 9);  
+		transform.renderer.material.SetFloat("_TimeValue", timeValue);  
+	}  
+}
+
+在Inspector界面上，我们只需要调整C#代码的两个变量即可，而不需要更改Material的变量。这样，我们将计算整数偏移量的工作转移到了C#代码中。
+
+当然，如果你不想自己实现一个功能完全的2D动画系统，你可以到Asset Store上下载一些插件，这些插件可以帮你完成大部分工作。这些插件有：
+
+SpriteManager (Free)
+2D ToolKit (资源商店/$65.00)
+Sprite Manager 2 (资源商店/$150.00)
+
+如果你需要寻找一些应用来制作sprites，可以使用下列应用：
+
+TimelineFX ($46.79)
+Anime Studio Pro ($199.99)
+Adobe Flash Professional ($699.00)
+
+这刀刀都在肉上，当然我相信大家总会有办法的。

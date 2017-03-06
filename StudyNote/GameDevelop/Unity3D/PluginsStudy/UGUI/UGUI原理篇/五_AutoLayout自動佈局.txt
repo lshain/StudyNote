@@ -1,0 +1,262 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T16:14:47+08:00
+
+====== 五 AutoLayout自動佈局 ======
+Created 星期三 11 一月 2017
+
+=== 目標： ===
+	■ Auto Layout System 架構
+	■ Layout Element 元素大小
+	■ Horizontal、Vertical 、Grid Layout Group 元素排列
+	■ Content Size 與 Aspect Ratio Fitter 大小控制
+
+=== Auto Layout System ===
+Auto Layout System 是基於 Rect Transform Layout System 之上的系統，自動調整一個或多個的元素大小、位置、間格，又分為 Layout Controllers(父物件) 與 Layout Elements(子物件) 兩部分，一個簡單的 Auto Layout 架構如下 (此處介紹理論，實作留到後面)
+{{./1.png}}
+
+[[https://docs.unity3d.com/Manual/script-LayoutElement.html|Layout Element (子物件)]]
+{{./2.png}}
+
+代表著每個元素的大小，擁有資訊如下：
+
+Minimum Width			最小寬度
+Minimum Height
+	
+Preferred Width		優先寬度
+Preferred Height
+	
+Flexible Width			彈性寬度
+Flexible Height
+	
+點選UI後，可以在 Inspector 最下方切換為 Layout Properties 看到資訊
+{{./3.png}}
+
+Layout Controllers 透過不同的佈局方式，取得 Layout Element size 分配子物件，基本原則如下
+
+* 首先分配 Minimum Size
+* 如果還有足夠空間，分配 Preferred Size
+* 如果還有額外空間，分配 Flexible Size
+
+從以下圖片可以看出圖片寬度的增長方式 (此處介紹理論，實作留到後面)
+{{./4.png}}
+
+* 首先分配 Minimum Size (300，紅色部分)
+* 如果還有足夠空間，分配 Preferred Size (300~500，綠色部分)
+* 如果還有額外空間，分配 Flexible Size：1 (500~700，藍色部分)
+
+比較特別的是 Flexible，他是代表著整個大小的比例，如果 Layout 下有2個物體，分別給 Flexible 設定為 0.3 與 0.7，那比例就會變成下圖 (3:7)
+{{./5.png}}
+
+另外要注意的是，Text、Image Component 會根據內容大小自動分配 Preferred Size
+
+=== Layout Controllers (父物件) ===
+Layout Group
+不會控制 Layout Controllers (父物件)自身大小，而是控制子物件大小與位置，在大多數情況下，根據每個元素的 minimum、preferred、flexible 大小分配適當的空間，layout group 之間也可以嵌套，又分為 Horizontal(水平)、Vertical(垂直)、Grid(格狀) 3種
+
+[[https://docs.unity3d.com/Manual/script-HorizontalLayoutGroup.html|Horizontal Layout Group]]
+{{./6.png}}
+水平方向(Width) 排列子物件
+組件位置：Unity Menu Item → Component → Layout → Horizontal Layout Group
+
+Padding：填充內部空間
+Spacing：每個元素間格
+Child Alignment：當沒有填滿全部空間時，子物件對齊位置
+Child Force Expand：強制控制子物件填滿空間
+
+== 透過實例理解各參數： ==
+A.開新 Scene
+Unity Menu Item → File → New Scene
+B.新增一個 Canvas
+Unity Menu Item → GameObject → UI → Canvas
+C.Canvas 下新增空物件，做為 Layout Controllers (以下簡稱父物件)
+D.父物件增加 Horizontal Layout Group Component
+Unity Menu Item → Component → Layout → Horizontal Layout Group
+E.父物件下建立5個 Button(子物件)，完成後如下，當大小改變時會自動分配子物件大小
+{{./1.gif}}
+
+F.此時在 Button 的 Rect Transform Component 就不能進行調整，因為我們已經透過 Horizontal Layout Group 進行分配空間，在 Rect Transform 會顯示目前被哪個 Layout Group 控制
+{{./7.png}}
+
+G.將 Padding 數值調整如圖，可以看出填充區域
+{{./8.png}}
+
+H.將 Spacing 數值調整如圖，可以看出元素區間
+{{./9.png}}
+
+I.接下來我們將5個 Button 增加 Layout Element Component 覆蓋預設大小，用於手動設定每個元素的大小
+組件位置：Unity Menu Item → Component → Layout → Layout Element
+J.此時將 Horizontal Layout Group 的 Child Force Expand Width 取消勾選，不強制子物件填滿額外空間，而是透過 Layout Element 手動設定
+K.這裡使用幾種不同的設定，來理解 Horizontal Layout Group 是怎麼取得 Layout Element size 分配子物件
+■ 複習一下子物件大小分配方式，如果不清楚請回去上面 Layout Elements 部分
+
+* 首先分配 Minimum Size
+* 如果還有足夠空間，分配 Preferred Size
+* 如果還有額外空間，分配 Flexible Size
+
+■ 將5個 Button 的 Layout Element Min Width 分別改為 20、30、40、50、60，此時可以看出每個 Button 寬度分佈，改變父物件大小時子物件大小並不會改變，因為只有分配 Min Width，並不會分配額外有效空間
+{{./2.gif}}
+
+此時改變 Horizontal Layout Group 的 Child Alignment，可以看出元素對齊
+{{./3.gif}}
+
+父物件 Layout Properties Min Width = 5個按鈕寬(20+30+40+50+60=200) + Spacing(40) + Padding Left、Right(20) = 260
+{{./10.png}}
+
+■ 現在將第1個 Button 的 Layout Element 數值調整如圖
+{{./11.png}}
+
+這邊設定 Preferred Width 為 100
+1.首先分配 Minimum Size(20)
+2.空間足夠的情況下，將會分配剩下的 Preferred Size (20~100 空間)，如下所示
+{{./4.gif}}
+
+■ 現在將第1個 Button 的 Layout Element 數值調整如圖
+{{./12.png}}
+
+這邊設定 Flexible Width 為 1
+1.首先分配 Minimum Size(20)
+2.如果還有足夠空間，將會分配剩下的 Preferred Size (20~100 空間)
+3.如果還有額外空間，分配剩下 Flexible Size，如下所示
+{{./5.gif}}
+
+■ 現在將 Horizontal Layout Group 的 Child Force Expand Width 勾選，讓子物件強制填滿
+1.首先分配 Minimum Size(20)
+2.如果還有足夠空間，將會分配剩下的 Preferred Size (20~100 空間)
+3.如果還有額外空間，分配剩下元素 Flexible Size 與 Child Force Expand Width
+{{./6.gif}}
+
+結論：
+上面我們看到，所有元素會先被分配 Minimum Size，接下來還有足夠空間，將會分配剩下的 Preferred Size，最後才是 Flexible Size 與 Child Force Expand Width
+至此我們了解到 Horizontal Layout Group 是怎麼取得 Layout Element size 分配子物件
+
+[[https://docs.unity3d.com/Manual/script-VerticalLayoutGroup.html|Vertical Layout Group]]
+{{./13.png}}
+垂直方向(Height) 排列子物件，與 Horizontal Layout Group 只差在水平或是垂直，這邊不在贅述
+組件位置：Unity Menu Item → Component → Layout → Vertical Layout Group
+
+[[https://docs.unity3d.com/Manual/script-GridLayoutGroup.html|Grid Layout Group]]
+{{./14.png}}
+
+網格方式排列子物件
+組件位置：Unity Menu Item → Component → Layout → Grid Layout Group
+ 
+Padding：填充內部空間
+Cell Size：每個元素的寬高
+
+{{./7.gif}}
+
+Spacing：每個元素間格
+Start Corner：開始排列的角落(位置)，又分為 “左上”、”右上”、”左下”、”右下”，請仔細看元素數字
+
+{{./8.gif}}
+
+Start Axis：”水平” 或是 “垂直” 排列，請仔細看元素數字
+{{./9.gif}}
+
+Child Alignment：當沒有填滿全部空間時，子物件對齊位置
+Constraint：排列限制
+Flexible：自動根據大小彈性排列
+Fixed Column Count：限制排列 “行數(直)”
+Fixed Row Count：限制排列 “列數(橫)”
+
+=== Layout Fitter ===
+控制著 Layout Controllers 自身大小，大小取決於子物件，或是設定的大小比例，又分為 [[https://docs.unity3d.com/Manual/script-ContentSizeFitter.html|Content Size Fitter]] 與 [[https://docs.unity3d.com/Manual/script-AspectRatioFitter.html|Aspect Ratio Fitter]]
+
+== Content Size Fitter ==
+{{./15.png}}
+
+控制著 Layout Controllers (父物件)自身大小，大小取決於子物件的 Minimum 或是 Preferred 大小，能透過 Pivot 改變縮放方向
+組件位置：Unity Menu Item → Component → Layout → Content Size Fitter
+
+Horizontal、Vertical Fit：水平、垂直 適應調整
+None 不調整
+Min Size 根據子物件的 Minimum 大小進行調整
+Preferred Size 根據子物件的 Preferred 大小進行調整
+
+透過實例理解：
+如果我們現在有一個需求，必需要讓 “父物件大小” 根據 “子物件大小” 進行縮放，完成如下 (方便明顯看出父物件大小，增加黑色外框)
+{{./10.gif}}
+
+A.開新 Scene
+Unity Menu Item → File → New Scene
+
+B.新增一個 Canvas
+Unity Menu Item → GameObject → UI → Canvas
+
+C.Canvas 下新增空物件，做為 Layout Controllers (以下簡稱父物件)
+
+D.父物件增加 Horizontal Layout Group Component
+Unity Menu Item → Component → Layout → Horizontal Layout Group
+
+這時如果增加 Button(子物件)，上面有提到，Horizontal Layout Group 會根據子物件的 Layout Element 進行分配子物件大小，而不會修改父物件本身的大小，如下所示 (方便明顯看出父物件大小，增加黑色外框)
+
+{{./11.gif}}
+
+E.父物件下增加 Button(子物件)，並增加 Layout Element Component 覆蓋預設大小，Minimum Width 調整為 100
+組件位置：Unity Menu Item → Component → Layout → Layout Element
+ 
+F.父物件增加 Content Size Fitter Component，Horizontal Fit 調整為 Min Size，透過子物件 Minimum Width 調整父物件本身大小 (Horizontal 方向其實就是取得子物件 Width)
+
+{{./16.png}}
+
+G.此時如果 Button 複製增加，父物件本身的大小也會跟著改變，如下所示
+
+{{./12.gif}}
+
+H.調整父物件的 pivot，可以控制縮放方向，如下所示
+
+{{./13.gif}}
+
+I.通過上面實例，我們首先使用 Horizontal Layout Group 排列子物件，並在子物件增加 Layout Element 覆蓋預設大小，最後透過 Content Size Fitter 取得子物件 Layout Element 設定父物件大小，至此父物件大小就會根據子物件大小進行縮放
+
+== Aspect Ratio Fitter ==
+{{./17.png}}
+控制著 Layout Controllers 自身大小，按照物件寬高比調整大小，能透過 pivot 改變縮放方向
+組件位置：Unity Menu Item → Component → Layout → Aspect Ratio Fitter
+ 
+Aspect Mode：調整模式
+None：不調整
+Width Controls Height：
+基於 Width 為基準，依據比例改變 Height
+{{./14.gif}}
+
+當 Width 改變時，Height 會依比例改變
+
+{{./15.gif}}
+
+Height Controls Width：
+基於 Height 為基準，依據比例改變 Width
+{{./16.gif}}
+
+當 Height 改變時，Width 會依比例改變
+{{./17.gif}}
+
+Fit In Parent：依據比例將 寬高、位置、anchors自動調整，使此圖形大小在父物件中完全貼齊，此模式可能不會包覆所有空間
+調整比例 (方便明顯看出父物件增加黑底)
+{{./18.gif}}
+
+調整父物件大小，物體會依據比例貼齊父物件
+{{./19.gif}}
+
+Envelope Parent：依據比例將 寬高、位置、anchors自動調整，使此圖形大小完全包覆父物件，此模式可能會超出空間
+調整比例 (方便明顯看出父物件增加黑框)
+{{./20.gif}}
+
+調整父物件大小，物體會依據比例包覆父物件
+{{./21.gif}}
+
+Aspect Ratio：比例，此數值為 寬/高
+
+差別：
+Content Size Fitter 是透過子物件自動進行調整大小
+Aspect Ratio Fitter 是透過數值(寬高比)進行調整
+ 
+後記
+Auto Layout System 可以快速、方便的排列多個 UI，當大小改變時會自動調整內容，也能應用在多層崁套下，在日後調整與修改上也是非常方便與直覺，是 UI 系統中必學的功能之一 !!
+
+參考資料
+■ Unity – Manual- Auto Layout
+http://docs.unity3d.com/Manual/UIAutoLayout.html
+■ Unity – Manual- Auto Layout_UI Reference
+http://docs.unity3d.com/Manual/comp-UIAutoLayout.html

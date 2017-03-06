@@ -1,0 +1,11 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-12T10:54:14+08:00
+
+====== YieldInstruction ======
+Created 星期五 12 二月 2016
+
+Unity声明了YieldInstruction来作为所有返回值的基类，并且提供了几种常用的继承类，
+如WaitForSeconds（暂停一段时间继续执行），
+WaitForEndOfFrame（暂停到下一帧继续执行）等等。
+更巧妙的是yield 也可以返回一个Coroutine真身，Coroutine A返回一个Coroutine B本身的时候，即等到B做完了再执行A。

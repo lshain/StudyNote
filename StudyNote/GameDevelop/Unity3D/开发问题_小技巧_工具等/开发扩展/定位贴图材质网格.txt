@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-13T11:29:09+08:00
+
+====== 定位贴图材质网格 ======
+Created 星期五 13 一月 2017
+
+		 这个插件是我在国外网站逛论坛发现的，试用了一下非常好用，是一个轻量级的插件就一个类。开发中尤其是和美术合作的时候，可能你会发现Project视图中有很多没有用到的资源，但是你又不敢删除，因为你不知道那些资源是没用到的，那些资源是用到的。这时候ResourceChecker可以帮上大忙。
+
+gitHub地址：https://github.com/handcircus/Unity-Resource-Checker
+
+将ResourceChecker放在Project视图中的Editor文件夹中，如果没有该文件夹就创建一个。如下图所示，在Unity导航菜单栏中选择 Windows -> Resource Checker 即可呼出窗口。
+
+{{./1.png}}
+
+在Textures选项卡最下面点击 Select Al l 可在Project视图中展开目录结构，这时候你删除没有选中的文件就可以。。 
+
+定位贴图、材质、网格。定位所有文件，总这这个小插件你值得拥有！

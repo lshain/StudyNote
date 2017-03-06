@@ -1,0 +1,22 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-09T10:54:17+08:00
+
+====== Prefab不挂脚本保存数据 ======
+Created 星期一 09 一月 2017
+
+在Editor下不给Prefab挂脚本，但是又想保存一些信息到Prefab上。
+
+通过AssetImporter可以把数据保存在userData上，它是get set属性。
+
+	[MenuItem("1/1")]
+	static public void Test()
+	{
+		string path = AssetDatabase.GetAssetPath(Selection.activeObject);
+		AssetImporter  import = AssetImporter.GetAtPath(path);
+		import.userData = "xuanyusong : MOMO!!!!";
+		import.SaveAndReimport();
+	}
+
+这样最终数据会记录在Prefab对应的.meta上。
+

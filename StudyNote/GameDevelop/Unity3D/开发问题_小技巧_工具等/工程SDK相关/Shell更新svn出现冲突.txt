@@ -1,0 +1,17 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T15:20:52+08:00
+
+====== Shell更新svn出现冲突 ======
+Created 星期二 10 一月 2017
+
+Jenkins在打包的时候需要先执行svn update，但是万一本地代码和svn服务代码冲突了怎么办？所以想了一个办法，如果发现资源冲突，那么就使用svn上的，而不用本地的。
+
+export SVN="svn --username 你的svn用户名 --password 你的svn密码 --no-auth-cache --non-interactive"
+export projectPath=需要更新svn的工程目录
+ 
+$SVN revert -R $projectPath
+$SVN up $projectPath
+$SVN resolve --accept theirs-conflict -R  $projectPath
+$SVN resolved -R $projectPath
+

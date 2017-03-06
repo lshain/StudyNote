@@ -1,0 +1,73 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-18T11:04:36+08:00
+
+====== UnityShader基础 ======
+Created 星期三 18 一月 2017
+
+=== UnityShader 基础结构 ===
+Shader "DisplayShaderNameXXX/XXX/XXX" {
+	Properties{
+		// 属性 定义
+	}
+	
+	SubShader{
+		// 显卡A 跑这一段
+	}
+	
+	SubShader{
+		// 显卡B 跑这一段
+	}
+	
+	Fallback "ShaderName" //匹配失败 调用这个Shader代替
+}
+
+=== Properties格式: ===
+	Properties{
+		// 属性 定义
+		VarName1 ("DisplayName", PropertyType1) = PropertyDefaultValue1
+		VarName2 ("DisplayName", PropertyType2) = PropertyDefaultValue2
+	}
+{{./1.png}}
+
+{{./2.png}}{{./3.png}}
+
+
+=== SubShader格式： ===
+SubShader {
+	//可选的
+	[Tags]
+	
+	// 可选的
+	[RenderSetup]
+	
+	Pass{
+	}
+	
+	//Other Passes
+}
+
+Tags:
+格式：  Tags { "TagName1" = "Value1" "TagName2" = "Value2" }
+{{./5.png}}
+
+RenderSetup:
+{{./4.png}}
+
+Pass格式:
+Pass {
+	[Name] 
+	//可选
+	//定义: Pass Name  eg: Name "MYPASS"
+	//有了名字，就可以使用ShaderLab里面UsePass命令来使用其他Shader中的Passs
+	//eg: UsePass "AShader/APSS"   
+	//注意 Pass名字要全部大写
+	
+	[Tags]
+	// 可选
+	{{./6.png}}
+	
+	[RenderSetup]
+	// Ohter Code
+}
+

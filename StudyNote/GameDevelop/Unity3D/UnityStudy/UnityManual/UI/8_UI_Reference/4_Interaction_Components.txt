@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-08T15:02:33+08:00
+
+====== 4 Interaction Components ======
+Created 星期五 08 四月 2016
+
+The **interaction components** in the UI system handle interaction, such as mouse or touch events and interaction using a keyboard or controller.
+
+* Selectable Base Class
+* Button
+* Toggle
+* Toggle Group
+* Slider
+* Scrollbar
+* Scroll Rect
+* InputField
+

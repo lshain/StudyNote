@@ -1,0 +1,91 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-15T23:09:53+08:00
+
+====== 组合模式 ======
+Created 星期一 15 八月 2016
+
+组合模式：将对象组合成树形结构以表示"部分-整体"的层次结构。"Composite使得用户对单个对象和组合对象的使用具有一致性。"
+
+public abstract class AComponent {
+	protected String name;
+	public AComponent(String name){
+		System.out.println(name);
+	}
+
+	abstract public void Add(AComponent c);				//添加结点
+	abstract public void Remove(AComponent c);			//移除结点
+	abstract public void Display(int i);					//输出结点结构
+}
+
+//组合类 
+public class Composite extends AComponent{
+	static AComponent component;
+
+	private ArrayList children = new ArrayList();
+
+	public Composite(String name) {
+		super(name);  
+	}
+
+	public void Add(AComponent c) {
+		this.component = c; children.add(c); 
+	}
+
+	public void Remove(AComponent c) {
+			children.remove(c); 
+	}
+
+	public void Display(int i) {
+		Iterator iter = children.iterator();
+		AComponent c = null;
+
+		c = (AComponent) iter.next();
+
+		while(iter.hasNext()&&iter.next().equals(null)){ 
+			System.out.println("abc------"+c.name); 
+		} 
+	} 
+}
+	
+//单对象类
+public class Leaf extends AComponent{  
+	public Leaf(String name) {
+		super(name); 
+	}
+
+	public void Add(AComponent c) {
+		System.out.println("不能添加子项!"); 
+	}
+
+	public void Remove(AComponent c) {
+		System.out.println("不能移除子项!"); 
+	}
+
+	public void Display(int i) {
+		System.out.println("abc"+new String()+name); 
+	} 
+}
+
+//测试类 
+public class Test {
+	public static void main(String[] args) {
+		Composite root = new Composite("根目录");
+		root.Add(new Leaf("---子项A"));
+		root.Add(new Leaf("---子项B"));
+		
+		Composite comp = new Composite("组合X");
+		comp.Add(new Leaf("---子项XA"));
+		comp.Add(new Leaf("---子项XB"));
+		
+		root.Add(comp);
+		root.Add(new Leaf("---子项C"));
+		
+		Leaf l = new Leaf("---子项D");
+		
+		root.Add(l);
+		root.Remove(l);
+		
+		root.Display(2);
+	}
+}

@@ -1,0 +1,14 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-04T16:44:22+08:00
+
+====== 1 VS2013 Win8 OpenGL Env Setting ======
+Created 星期一 04 一月 2016
+
+OpenGL开发库里面的
+	dll放置到C:\Windows\System32, C:\Windows\SysWOW64
+	lib放置到C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\lib
+	头文件放置到C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\GL
+
+[[./OpenGL开发库.zip]] 
+

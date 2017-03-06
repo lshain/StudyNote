@@ -1,0 +1,123 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-04-07T12:54:37+08:00
+
+====== UGUI之RectTransform知识点 ======
+Created 星期四 07 四月 2016
+
+转自: http://www.manew.com/thread-41633-1-1.html?_dsign=f3ed7131
+
+直接开讲RecTransform。RectTransform首先要阐述的就是Anchor。
+{{./1.png}}
+
+小小的仰慕下设计该解决方案的人，华丽丽的一套思想解决了绝对布局与相对布局的问题。至于其是不是首创我就不得而知了，本人视野有限，UI方面的东西很是生疏。
+
+看完了上面的图，我们再来看下这个图：
+{{./2.png}}
+你可以理解为上面那个图是用来让你更好的操作，下面这个才是他的数值。那么，anchor到底是啥，在ugui里面。
+
+Anchor名字叫锚点，但在ugui里面其应该叫锚框。其存在最小点与最大点。你可以闭眼想象一下两个点决定一个矩形，当然也可以决定的是一个点（重合）。如中间的那九个（有人叫他九宫格）就是最大点与最小点重合。anchormin与anchormax均为向量，那么其向量空间是啥，下面一张图说明。
+{{./3.png}}
+
+其中黑色框子为父物体，红色物体为当前物体。设置红色物体的anchor的时候，其坐标系如图。(0,0)表征父物体的左下。（1,1）表征右上角。
+
+如此，你自己动手很好理解中间那九个绝对布局。你还可以手动设置值，让他的锚点位于父物体的某个位置。那个图你可以理解为预定义的几个锚点位置，当然也是最常用的，一般我们要么居中，要么就是靠左，靠右的，很少出现非要靠左边1/3处的。
+
+下面我们来讲解下边上的七个相对布局。相对布局与绝对布局如此和谐的融合主要得益于锚框这个概念的提出。在ugui中，锚点不再是一个点，而是一个框子，有四个点，用两个点来进行表征。即anchormin与anchormax，前者表征左下角，后者表征右上角。
+{{./4.png}}
+
+观察图，你可以看到锚点已经分为四个点，组成了一个锚框了。这个时候，就是相对布局了，你的物体会随着父物体变化而变化。
+         
+当使用相对布局的时候，锚框会根据你的输入变换成一个矩形或者一条线，总之四个点各种组合。
+
+我们观察RectTransform还有一个属性叫pivot，该属性表征的为中心，用3dmax或者maya的人应该不会生疏这个概念。其向量空间如下图所示：
+{{./5.png}}
+
+RectTransform还存在一个属性叫anchoredPosition（anchoredPosition3D此处就忽略不讲了）。其表征的为锚点到pviot的向量。对于绝对布局很好理解，因为锚点就是一个点，如下图
+       
+首先anchor设置为(0.5,0.5),pivot设置为(0.5,0.5)，得到下图：
+{{./6.png}}
+
+但是对于锚框的情形，如何计算，为此我做了大量的测试，总结，最终得到的结论为：锚点为锚框根据pviot计算得到，然后再通过锚点计算出pviot相对锚点的偏移向量。有兴趣的可以自行测试下，我测试的数据如下：
+
+1、pviot(0.5,0.5)，anchor从（0,0）（0,0），（0,0）（0,0.1），（0,0）（0,0.2）……（0,0）（0,1）得到的anchoredposition的变化为(250.0, 300.0)、(250.0, 275.0)、(250.0, 250.0)、(250.0, 225.0)、(250.0, 200.0)、(250.0, 175.0)、(250.0, 150.0)、(250.0, 125.0)、(250.0, 100.0)、(250.0, 75.0)、(250.0, 50.0)。可以看出锚点位于锚框的中心。
+       
+2、pviot(0,0)，anchor从(0,0)，（0.1,0.1），（0.2,0.2），（0.3,0.3），（0.4,0.4），（0.5,0.5），（0.6,0.6），（0.7,0.7），（0.8,0.8），（0.9,0.9），（1,1）得到的输出anchoredpoistion为一直为(150.0, 100.0)
+       
+3、pivot为(1,1)，条件同第二条，得到的输出为(350.0, 500.0)、(310.0, 450.0)、(270.0, 400.0)、(230.0, 350.0)、(190.0, 300.0)、(150.0, 250.0)、(110.0, 200.0)、(70.0, 150.0)、(30.0, 100.0)、(-10.0, 50.0)、(-50.0, 0.0)。
+
+至此，anchor与pviot以及anchoredposition介绍完毕。下面就是offsetmin与offsetmax。offsetmin表征的是图元的左下角相对锚框的左下角的便宜，offsetmax表征图元的右上角相对锚框的右上角的偏移。如对于绝对布局如下图：
+{{./7.png}}
+anchor为(0,0.5)
+
+{{./8.png}}
+anchor为（0,0）
+
+相对布局如下：
+{{./9.jpg}}
+anchor为（0,1）（1,1）
+
+{{./10.jpg}}
+anchor为(0,0)(1,1)
+
+再下一个属性是sizeDelta了，“The size of this RectTransform relative to the distances between the anchors.”写得多直白（吐槽下，官方的英文文档是啥级别的资料组维护的，专业坑爹三十年么！！！）。这里阐述下，这个属性表示的就是offsetMax-offsetMin得到的向量，即图元从左下角指向右上角得到的向量。当然如果用的是相对布局的话，这个向量看起来会非常诡异。所以，这个变量就别用了，属于坑爹API。
+
+最后一个属性，只读的Rect，其表征的是图元这个Rect，其向量空间为pviot作为原点的xoy坐标系。目前没觉得有啥大的用途。
+
+下面来阐述下其中的某些方法：
+	  void GetLocalCorners(Vector3[] fourCornersArray);该方法表示获取图元的四个角在父物体坐标系中的坐标。这里有个坑就是你自己要声明一个四个长度的Vector3数组作为参数送进去，方法执行完毕该数组会被赋值好，依次顺序为从左下开始到右下（如果有旋转的话，另谈）。
+
+	  void GetWorldCorners(Vector3[] fourCornersArray);该方法同上，只是获取到的是世界坐标系的坐标。该方法灰常有用，我上一个项目画写板就是通过这个东西来确定鼠标位于texture的哪一个像素上，从而完成画写。            
+
+	  void SetSizeWithCurrentAnchors(RectTransform.Axis axis, float size);按照的当前的anchor信息来设置尺寸。其实该方法名字我觉得应该增加上pviot这几个字母，因为实际上你会发现他根据的是pviot，设置的结果与anchors反而无关，其强大之处也在于此，使用及其方便，你只要设定好pviot，然后就可以设定其为你想要的范围。很好操控。
+	  见下图：
+{{./11.jpg}}
+原位置
+
+{{./12.jpg}}
+pviot(0.5,0.5)
+
+{{./13.jpg}}
+pviot(0,0)
+
+测试代码：
+if (Input.GetKeyDown(KeyCode.A))
+{
+	gameObject.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 200);
+}
+if (Input.GetKeyDown(KeyCode.S))
+{
+	gameObject.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 100);
+}
+
+	   void SetInsetAndSizeFromParentEdge(RectTransform.Edge edge, float inset, float size);这个函数可以简单的理解为设置图元相对父图元边的距离以及图元的尺寸，其强大之处在于其完全不管你当前的pviot设置的啥，你的anchor设置的又是啥。例图如下：
+{{./14.jpg}}
+原图
+
+{{./15.jpg}}
+图1
+
+{{./16.jpg}}
+图2
+
+测试代码：
+if (Input.GetKeyDown(KeyCode.W))
+{
+	gameObject.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, 100, 300);
+}
+if (Input.GetKeyDown(KeyCode.A))
+{
+	gameObject.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Left, 100, 400);
+}
+if (Input.GetKeyDown(KeyCode.S))
+{
+	gameObject.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, 100, 300);
+}
+if (Input.GetKeyDown(KeyCode.D))
+{
+	gameObject.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Right, 100, 400);
+}
+
+
+
+

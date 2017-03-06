@@ -1,0 +1,75 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-12-27T15:10:05+08:00
+
+====== USACO Ski Course Design ======
+Created 星期二 27 十二月 2016
+
+描述
+
+农民约翰的农场里有N座山峰(1<=N<=1000),每座山都有一个在0到100之间的整数的海拔高度。在冬天,因为山上有丰富的积雪,约翰经常开办滑雪训练营。
+
+不幸的是,约翰刚刚得知税法在滑雪训练营方面有新变化,明年开始实施。在仔细阅读法律后,他发现如果滑雪训练营的最高和最低的山峰海拔高度差大于17就要收税。因此,如果他改变山峰的高度（使最高与最低的山峰海拔高度差不超过17）,约翰可以避免支付税收。
+
+如果改变一座山x单位的高度成本是x^2单位,约翰最少需要付多少钱?约翰只愿意改变整数单位的高度。
+
+思路：
+由于每座山都有一个在0到100之间的整数的海拔高度。 区间很小， 所以枚举 最高，最低区间， 将所有的山调整到这个区间，并统计最小花费。
+
+/*
+ID: lshain.1
+LANG: C++
+TASK: skidesign
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <algorithm>
+
+static const char* FILE_IN = "skidesign.in";
+static const char* FILE_OUT = "skidesign.out";
+
+int n;
+int num[1001];
+int sum;
+
+void solve() {
+	scanf("%d", &n);
+	for (int i = 0; i < n; i++) {
+		scanf("%d", &num[i]);
+	}
+
+	int t = 0;
+	sum = -1;
+
+	for (int min = 1; min <= 100; min++) {
+		int max = min + 17;
+		t = 0;
+		for (int i = 0; i < n; i++) {
+			if (num[i] < min) {
+				t += (min - num[i])*(min - num[i]);
+			}
+
+			if (num[i] > max) {
+				t += (num[i] - max)*(num[i] - max);
+			}
+		}
+
+		if (sum == -1 || t < sum) {
+			sum = t;
+		}
+	}
+
+	printf("%d\n", sum);
+}
+
+int main(int argc, char* argv[])
+{
+	freopen(FILE_IN, "r", stdin);
+	freopen(FILE_OUT, "w", stdout);
+
+	solve();
+
+	return 0;
+}

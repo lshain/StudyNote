@@ -1,0 +1,33 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T22:11:49+08:00
+
+====== 一 Canvas渲染模式 ======
+Created 星期二 10 一月 2017
+
+=== Canvas ===
+Canvas Component 是UI布局和渲染的抽象空間，所有的UI都必須在此元素之下(子物件)，簡單來說 Canvas 就是渲染 UI 的組件
+
+== Screen Space – Overlay ==
+{{./1.png}}
+在此模式下不會參照到Camera，UI直接顯示在任何圖形之上
+1.Pixel Perfect：可以使圖像更清晰，但是有額外的性能開銷，如果在有大量UI動畫時，動畫可能會不平順
+2.Sort Order：深度值，該值越高顯示越前面
+
+== Screen Space – Camera ==
+{{./2.png}}
+使用一個Camera作為參照，將UI平面放置在Camera前的一定距離，因為是參照Camera，如果螢幕大小、分辨率、Camera視錐改變時UI平面會自動調整大小。如果Scene中的物件(GameObject)比UI平面更靠近攝影機，就會遮擋到UI平面。
+
+1.Render Camera：用於渲染的攝影機
+2.Plane Distance：與Camera的距離
+3.Sorting Layer：Canvas屬於的排序層，在 Edit->Project Setting->Tags and Layers->Sorting Layers 進行新增，越下方的層顯示越前面
+4.Order in Layer：Canvas屬於的排序層下的順序，該值越高顯示越前面
+
+== World Space ==
+{{./3.png}}
+把物體當作世界座標中的平面(GameObject)，也就是當作3D物件，顯示3D UI
+1.Event Camera：處理UI事件(Click、Drag)的Camera，所設定的Camera才能觸發事件
+
+參考資料
+■ Unity – Manual: Canvas
+http://docs.unity3d.com/Manual/class-Canvas.html

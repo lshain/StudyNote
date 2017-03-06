@@ -1,0 +1,13 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-02-21T22:07:08+08:00
+
+====== MovieTexture ======
+Created 星期日 21 二月 2016
+
+转自：http://www.xuanyusong.com/archives/1019
+
+	Unity3D中播放游戏视频的方式有两种，第一种是在游戏对象中播放，就好比在游戏世界中创建一个Plane面对象，摄像机直直的照射在这个面上。第二种是在GUI层面上播放视频。播放视频其实和贴图非常相像，因为播放视频用到的MovieTexture属于贴图Texture的子类，那么本章我们就好好学习一下Unity中播放视频的这两种方式。哇咔咔～
+
+	Unity支持的播放视频格式有.mov、.mpg、.mpeg、.mp4、.avi和.asf。只需将对应的视频文件拖拽入Project视图即可，它会自动生成对应的MovieTexture对象。如下图所示，MOMO将default_video.mp4拖拽入Project视图中，如果视频中含有音频的话会对应生成audio文件，因为我的视频没有音频所以没有生成 audio文件。接着在Hierarchy视图中创建一个Plane对象视频将在它之上播放，Directional light世界定向光用于照亮整个游戏场景，最后Main Camera对象将直直的照射在Plane对象。
+

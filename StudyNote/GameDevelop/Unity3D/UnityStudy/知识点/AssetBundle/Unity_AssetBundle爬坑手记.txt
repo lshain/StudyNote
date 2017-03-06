@@ -1,0 +1,283 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-03-27T22:10:15+08:00
+
+====== Unity5 AssetBundle1 ======
+Created 星期日 27 三月 2016
+
+===== Unity AssetBundle爬坑手记 =====
+
+转自：http://www.cnblogs.com/ybgame/p/3973177.html
+
+这篇文章从AssetBundle的打包，使用，管理以及内存占用各个方面进行了比较全面的分析，对AssetBundle使用过程中的一些坑进行填补指引以及喷！
+ 
+AssetBundle是Unity推荐的资源管理方式，官方列举了诸如热更新，压缩，灵活等等优点，但AssetBundle的坑是非常深的，很多隐藏细节让你使用起来需要十分谨慎，一不小心就会掉入深坑，打包没规划好，20MB的资源“压缩”到了30MB，或者大量的包导致打包以及加载时的各种低效，或者莫名其妙地丢失关联，或者内存爆掉，以及各种加载失败，在网上研究了大量关于AssetBundle的文章，但每次看完之后，还是有不少疑问，所以只能通过实践来解答心中的疑问，为确保结果的准确性，下面的测试在编辑器下，Windows，IOS下都进行了测试比较。
+ 
+首先你为什么要选择AssetBundle，纵使他有千般好处，但一般选择AssetBundle的原因就是，要做热更新，动态更新游戏资源，或者你Resource下的资源超过了它的极限（2GB还是4GB？），如果你没有这样的需求，那么建议你不要使用这个坏东西，闹心~~
+ 
+当你选择了AssetBundle之后，以及我开始喷AssetBundle之前，我们需要对AssetBundle的工作流程做一个简单的介绍：
+AssetBundle可以分为打包AssetBundle以及使用AssetBundle
+ 
+打包需要在UnityEditor下编写一些简单的代码，来取出你要打包的资源，然后调用打包方法进行打包
+
+Object obj = AssetDatabase.LoadMainAssetAtPath("Assets/Test.png");
+BuildPipeline.BuildAssetBundle(obj, null,
+								  Application.streamingAssetsPath + "/Test.assetbundle",
+								 BuildAssetBundleOptions.CollectDependencies | BuildAssetBundleOptions.CompleteAssets
+								 | BuildAssetBundleOptions.DeterministicAssetBundle, BuildTarget.StandaloneWindows);
+
+{{./1.png}}
+在使用的时候，需要用WWW来加载Bundle，然后再用加载出来的Bundle来Load资源
+
+WWW w = new WWW("file://" + Application.streamingAssetsPath + "/Test.assetbundle");
+myTexture = w.assetBundle.Load("Test");
+
+【一，打包】
+ 
+接下来我们来看一下打包：
+ 
+
+=== 1.资源的搜集 ===
+ 
+	在打包前我们可以通过遍历目录的方式来自动化地进行打包，可以有选择性地将一些目录打包成一个Bundle，这块也可以用各种配置文件来管理资源，也可以用目录规范来管理
+	我这边是用一个目录规范对资源进行大的分类，分为公共以及游戏内，游戏外几个大模块，然后用一套简单命名规范来指引打包，例如用OBO（OneByOne）作为目录后缀来指引将目录下所有资源独立打包，默认打成一个包，用Base前缀来表示这属于公共包，同级目录下的其他目录需要依赖于它
+ 
+	使用Directory的GetFiles和GetDirectories可以很方便地获取到目录以及目录下的文件
+
+	Directory.GetFiles("Assets/MyDirs", "*.*", SearchOption.TopDirectoryOnly);
+	Directory.GetDirectories(Application.dataPath + "/Resources/Game", "*.*", SearchOption.AllDirectories);
+
+=== 2.资源读取 ===
+
+	GetFiles搜集到的资源路径可以被加载，加载之前需要判断一下后缀是否.meta，如果是则不取出该资源，然后将路径转换至Assets开头的相对路径，然后加载资源
+
+	string newPath = "Assets" + mypath.Replace(Application.dataPath, "");
+	newPath = newPath.Replace("\\", "/");
+	Object obj = AssetDatabase.LoadMainAssetAtPath(newPath);
+
+=== 3.打包函数 ===
+ 
+	我们调用BuildPipeline.BuildAssetBundle来进行打包：
+	BuildPipeline.BuildAssetBundle有5个参数，第一个是主资源，第二个是资源数组，这两个参数必须有一个不为null，如果主资源存在于资源数组中，是没有任何关系的，如果设置了主资源，可以通过Bundle.mainAsset来直接使用它
+	第三个参数是路径，一般我们设置为  Application.streamingAssetsPath + Bundle的目标路径和Bundle名称
+	第四个参数有四个选项，BuildAssetBundleOptions.CollectDependencies会去查找依赖，BuildAssetBundleOptions.CompleteAssets会强制包含整个资源，BuildAssetBundleOptions.DeterministicAssetBundle会确保生成唯一ID，在打包依赖时会有用到，其他选项没什么意义
+	第五个参数是平台，在安卓，IOS，PC下，我们需要传入不同的平台标识，以打出不同平台适用的包，注意，Windows平台下打出来的包，不能用于IOS
+
+{{./2.png}}
+
+	在打对应的包之前应该先选择对应的平台再打包
+ 
+
+=== 4.打包的决策 ===
+ 
+	在打包的时候，我们需要对包的大小和数量进行一个平衡，所有资源打成一个包，一个资源打一个包，都是比较极端的做法，他们的问题也很明显，更多情况下我们需要灵活地将他们组合起来
+	打成一个包的缺点是加载了这个包，我们不需要的东西也会被加载进来，占用额外内存，而且不利于热更新
+	打成多个包的缺点是，容易造成冗余，首先影响包的读取速度，然后包之间的内容可能会有重复，且太多的包不利于资源管理
+	哪些模块打成一个包，哪些模块打成多个包，需要根据实际情况来，例如游戏中每个怪物都需要打成一个包，因为每个怪物之间是独立的，例如游戏的基础UI，可以打成一个包，因为他们在各个界面都会出现
+ 
+	PS.想打包进AssetBundle中的二进制文件，文件名的后缀必须为“.bytes”
+ 
+【二，解包】
+	解包的第一步是将Bundle加载进来，new一个WWW传入一个URL即可加载Bundle，我们可以传入一个Bundle的网址，从网络下载，也可以传入本地包的路径，一般我们用file://开头+Bundle路径，来指定本地的Bundle，用http://或https://开头+Bundle网址来指定网络Bundle
+
+string.Format("file://{0}/{1}", Application.streamingAssetsPath, bundlePath);
+
+在安卓下路径不一样，如果是安卓平台的本地Bundle，需要用jar:file://作为前缀，并且需要设置特殊的路径才能加载
+
+string.Format("jar:file://{0}!/assets/{1}", Application.dataPath, bundlePath);
+
+	传入指定的URL之后，我们可以用WWW来加载Bundle，加载Bundle需要消耗一些时间，所以我们一般在协同里面加载Bundle，如果加载失败，你可以在www.error中得到失败的原因
+
+IEnumerator LoadBundle(string url)
+{
+	WWW www = = new WWW(url);
+	yield return www;
+
+	if (www.error != null)
+	{
+	Debug.LogError("Load Bundle Faile " + url + " Error Is " + www.error);
+	yield break;
+	}
+
+	//Do something ...
+}
+
+	除了创建一个WWW之外，还有另一个方法可以加载Bundle，WWW.LoadFromCacheOrDownload(url, version)，使用这个函数对内存的占用会小很多，但每次重新打包都需要将该Bundle对应的版本号更新（第二个参数version），否则可能会使用之前的包，而不是最新的包，LoadFromCacheOrDownload会将Bundle从网络或程序资源中，解压到一个磁盘高速缓存，一般可以理解为解压到本地磁盘，如果本地磁盘已经存在该版本的资源，就直接使用解压后的资源。对于AssetBundle所有对内存占用的情况，后面会有一小节专门介绍它
+ 
+	LoadFromCacheOrDownload会记录所有Bundle的使用情况，并在适当的时候删除最近很少使用的资源包，它允许存在两个版本号不同但名字一样的资源包，这意味着你更新这个资源包之后，如果没有更新代码中的版本号，你可能取到的会是旧版本的资源包，从而产生其他的一些BUG。另外，当你的磁盘空间不足的时候（硬盘爆了），LoadFromCacheOrDownload只是一个普通的new WWW！后面关于内存介绍的小节也会对这个感叹号进行介绍的
+ 
+	拿到Bundle之后，我们就需要Load里面的资源，有Load，LoadAll以及LoadAsyn可供选择
+
+	//将所有对象加载资源
+	Object[] objs = bundle.LoadAll();
+ 
+	//加载名为obj的资源
+	Object obj = bundle.Load("obj");
+ 
+	//异步加载名为resName，类型为type的资源
+	AssetBundleRequest res = bundle.LoadAsync(resName, type);
+		yield return res;
+
+	var obj = res.asset;
+
+	我们经常会把各种游戏对象做成一个Prefab，那么Prefab也会是我们Bundle中常见的一种资源，使用Prefab时需要注意一点，在Bundle中加载的Prefab是不能直接使用的，它需要被实例化之后，才能使用，而对于这种Prefab，实例化之后，这个Bundle就可以被释放了
+
+	//需要先实例化
+	GameObject obj = GameObject.Instantiate(bundle.Load("MyPrefab")) as GameObject;
+
+	对于从Bundle中加载出来的Prefab，可以理解为我们直接从资源目录下拖到脚本上的一个Public变量，是未被实例化的Prefab，只是一个模板
+ 
+	如果你用上面的代码来加载资源，当你的资源慢慢多起来的时候，你可能会发现一个很坑爹的问题，你要加载的资源加载失败了，例如你要加载一个GameObject，但是整个加载过程并没有报错，而当你要使用这个GameObject的时候，出错了，而同样的代码，我们在PC上可能没有发现这个问题，当我们打安卓或IOS包时，某个资源加载失败了。
+ 
+	出现这种神奇的问题，首先是怀疑打包的问题，包太大了？删掉一些内容，不行！重新打一个？还是不行！然后发现来来回回，都是这一个GameObject报的错，难道是这个GameObject里面部分资源有问题？对这个GameObject各种分析，把它大卸八块，处理成一个很简单的GameObject，还是不行！难道是名字的问题？把这个GameObject的名字改了一下，可以了！
+ 
+	本来事情到这就该结束了，但是，这也太莫名其妙了吧！而且，最重要的是，哥就喜欢原来的名字！！把这个资源改成新的名字，怎么看怎么变扭，怎么看都没有原来的名字好看，所以继续折腾了起来~
+ 
+	首先单步跟踪到这个资源的Load，资源被成功Load出来了，但是Load出来的东西有点怪怪的，明显不是一个GameObject，而是一个莫名其妙的东西，可能是Unity生成的一个中间对象，也许是一个索引对象，反正不是我要的东西，打包的GameObject怎么会变成这个玩意呢？于是在加载Bundle的地方，把Bundle LoadAll了一下，然后查看这个Bundle里面的内容
+
+{{./3.jpg}}
+
+	在这里我们可以看到，有一个叫RoomHallView和RoomMainView的GameObject，并且，LoadAll之后的资源比我打包的资源要多很多，看样子所有关联到的资源都被自动打包进去了，数组的427是RoomHallView的GameObject，而431才是RoomMainView的GameObject。可以看到名字叫做RoomMainView和RoomHallView的对象有好几个，GameObject，Transform，以及一个只有名字的对象，它的类型是一个ReferenceData。
+ 
+	仔细查看可以发现，RoomHallView的GameObject是排在数组中所有名为RoomHallView对象的最前面，而RoomMainView则是ReferenceData排在前面，当我们Load或者LoadAsyn时，是一次数组的遍历，当遍历到名字匹配的对象时，则将对象返回，LoadAsyn会对类型进行匹配，但由于我们传入的是Object，而几乎所有的对象都是Object，所以返回的结果就是第一个名字匹配的对象
+ 
+	在Load以及LoadAsyn时，除了名字，把要加载对象的类型也传入，再调试，原来的名字也可以正常被读取到了，这个细节非常的坑，因为在官网并没有提醒，而且示例的sample也没有说应该注意这个地方，并且出现问题的几率很小。所以一旦出现，就坑死了
+
+	bundle.Load("MyPrefab", typeof(GameObject))
+
+	另外，不要在IOS模拟器上测试AssetBundle，你会收到bad url的错误
+ 
+【三，依赖】
+ 
+	依赖和打包息息相关，之所以把依赖单独分开来讲，是因为这玩意太坑了.......
+ 
+【1.打包依赖】
+ 
+	在我们打包的时候，将两个资源打包成单独的包，那么两个资源所共用的资源，就会被打包成两份，这就造成了冗余，所以我们需要将公共资源抽出来，打成一个Bundle，然后后面两个资源，依赖这个公共包，那么还有另外一种方法，就是把它们三打成一个包，但这不利于后期维护    
+
+{{./4.png}}
+
+	我们使用BuildPipeline.PushAssetDependencies()和BuildPipeline.PopAssetDependencies()来开启Bundle之间的依赖关系，当我们调用PushAssetDependencies之后，会开启依赖模式，当我们依次打包 A B C时，如果A包含了B的资源，B就不会再包含这个资源，而是直接依赖A的，如果A和B包含了C的资源，那么C的这个资源旧不会被打包进去，而是依赖A和B。这时候只要有同样的资源，就会向前依赖，当我们希望，B和C依赖A，但B和C之间不互相依赖，就需要嵌套Push Pop了，当我们调用PopAssetDependencies就会结束依赖
+
+  string path = Application.streamingAssetsPath;
+  BuildPipeline.PushAssetDependencies();
+ 
+  BuildTarget target = BuildTarget.StandaloneWindows;
+  
+  BuildPipeline.BuildAssetBundle(AssetDatabase.LoadMainAssetAtPath("Assets/UI_tck_icon_houtui.png"), null,
+								 path + "/package1.assetbundle",
+								 BuildAssetBundleOptions.CollectDependencies | BuildAssetBundleOptions.CompleteAssets
+								 | BuildAssetBundleOptions.DeterministicAssetBundle, target);
+ 
+ 
+  BuildPipeline.BuildAssetBundle(AssetDatabase.LoadMainAssetAtPath("Assets/New Material.mat"), null,
+								 path + "/package2.assetbundle",
+								 BuildAssetBundleOptions.CollectDependencies | BuildAssetBundleOptions.CompleteAssets
+								 | BuildAssetBundleOptions.DeterministicAssetBundle, target);
+ 
+ 
+  BuildPipeline.PushAssetDependencies();
+  BuildPipeline.BuildAssetBundle(AssetDatabase.LoadMainAssetAtPath("Assets/Cube.prefab"), null,
+								 path + "/package3.assetbundle",
+								 BuildAssetBundleOptions.CollectDependencies | BuildAssetBundleOptions.CompleteAssets
+								 | BuildAssetBundleOptions.DeterministicAssetBundle, BuildTarget.StandaloneWindows);
+  BuildPipeline.PopAssetDependencies();
+ 
+ 
+ 
+  BuildPipeline.PushAssetDependencies();
+  BuildPipeline.BuildAssetBundle(AssetDatabase.LoadMainAssetAtPath("Assets/Cubes.prefab"), null,
+								 path + "/package4.assetbundle",
+								 BuildAssetBundleOptions.CollectDependencies | BuildAssetBundleOptions.CompleteAssets
+								 | BuildAssetBundleOptions.DeterministicAssetBundle, target);
+  BuildPipeline.PopAssetDependencies();
+ 
+  BuildPipeline.PopAssetDependencies();
+
+	上面的代码演示了如何使用依赖，这个测试使用了一个纹理，一个材质，一个正方体Prefab，还有两个正方体组成的Prefab，材质使用了纹理，而两组正方体都使用了这个材质，上面的代码用Push开启了依赖，打包纹理，然后打包材质（材质自动依赖了纹理），然后嵌套了一个Push，打包正方体（正方体依赖前面的材质和纹理），然后Pop，接下来再嵌套了一个Push，打包那组正方体（不依赖前面的正方体，依赖材质和纹理）
+ 
+	如果我们只开启最外面的Push Pop，而不嵌套Push Pop，那么两个正方体组成的Prefab就会依赖单个正方体的Prefab，依赖是一把双刃剑，它可以去除冗余，但有时候我们又需要那么一点点冗余
+ 
+【2.依赖丢失】
+ 
+	当我们的Bundle之间有了依赖之后，就不能像前面那样简单地直接Load对应的Bundle了，我们需要把Bundle所依赖的Bundle先加载进来，这个加载只是WWW或者LoadFromCacheOrDownload，并不需要对这个Bundle进行Load，如果BundleB依赖BundleA，当我们要加载BundleB的资源时，假设BundleA没有被加载进来，或者已经被Unload了，那么BundleB依赖BundleA的部分就会丢失，例如每个正方体上都挂着一个脚本，当我们不嵌套Push Pop时，单个正方体的Bundle没有被加载或者已经被卸载，我们加载的那组正方体上的脚本就会丢失，脚本也是一种资源，当一个脚本已经被打包了，依赖这个包的资源，就不会被再打进去
+ 
+Cubes和Cube都挂载同一个脚本，TestObje，Cubes依赖Cube，将Cube所在的Bundle Unload，再Load Cubes的Bundle，Cubes的脚本丢失，脚本，纹理，材质等一切资源，都是如此
+
+{{./5.png}}
+{{./6.png}}
+【3.更新依赖】
+ 
+	在打包的时候我们需要指定BuildAssetBundleOptions.DeterministicAssetBundle选项，这个选项会为每个资源生成一个唯一的ID，当这个资源被重新打包的时候，确定这个ID不会改变，包的依赖是根据这个ID来的，使用这个选项的好处是，当资源需要更新时，依赖于该资源的其他资源，不需要重新打包
+ 
+	A -> B -> C
+ 
+	当A依赖B依赖C时，B更新，需要重新打包C，B，而A不需要动，打包C的原因是，因为B依赖于C，如果不打包C，直接打包B，那么C的资源就会被重复打包，而且B和C的依赖关系也会断掉
+ 
+【四，内存】
+ 
+	在使用WWW加载Bundle时，会开辟一块内存，这块内存是Bundle文件解压之后的内存，这意味着这块内存很大，通过Bundle.Unload可以释放掉这块内存，Unload true和Unload false 都会释放掉这块内存，而这个Bundle也不能再用，如果要再用，需要重新加载Bundle，需要注意的是，依赖这个Bundle的其他Bundle，在Load的时候，会报错
+ 
+	得到Bundle之后，我们用Bundle.Load来加载资源，这些资源会从Bundle的内存被复制出来，作为Asset放到内存中，这意味着，这块内存，也很大，Asset内存的释放，与Unity其他资源的释放机制一样，可以通过Resources.UnloadUnuseAsset来释放没有引用的资源，也可以通过Bundle.Unload(true)来强制释放Asset，这会导致所有引用到这个资源的对象丢失该资源
+ 
+{{./7.png}}
+	上面两段话可以得出一个结论，在new WWW(url)的时候，会开辟一块内存存储解压后的Bundle，而在资源被Load出来之后，又会开辟一块内存来存储Asset资源，WWW.LoadFromCacheOrDownload(url)的功能和new WWW(url)一样，但LoadFromCacheOrDownload是将Bundle解压到磁盘空间而不是内存中，所以LoadFromCacheOrDownload返回的WWW对象，本身并不会占用过多的内存（只是一些索引信息，每个资源对应的磁盘路径，在Load时从磁盘取出），针对手机上内存较小的情况，使用WWW.LoadFromCacheOrDownload代替new WWW可以有效地节省内存。但LoadFromCacheOrDownload大法也有不灵验的时候，当它不灵验时，LoadFromCacheOrDownload返回的WWW对象将占用和new WWW一样的内存，所以不管你的Bundle是如何创建出来的，都需要在不使用的时候，及时地Unload掉。
+ 
+	另外使用LoadFromCacheOrDownload需要注意的问题是——第二个参数，版本号，Bundle重新打包之后，版本号没有更新，取出的会是旧版本的Bundle，并且一个Bundle缓存中可能会存在多个旧版本的Bundle，例如1,2,3 三个版本的Bundle
+
+{{./8.png}}
+	在Bundle Load完之后，不需要再使用该Bundle了，进行Unload，如果有其他Bundle依赖于该Bundle，则应该等依赖于该Bundle的Bundle不需要再Load之后，Unload这个Bundle，一般出现在大场景切换的时候。
+    
+	我们知道在打包Bundle的时候，有一个参数是mainAsset，如果传入该参数，那么资源会被视为主资源打包，在得到Bundle之后，可以用AssetBundle.mainAsset直接使用，那么是否在WWW获取Bundle的时候，就已经将mainAsset预先Load出来了呢？不是！在我们调用AssetBundle.mainAsset取出mainAsset时，它的get方法会阻塞地去Load mainAsset，然后返回，AssetBundle.mainAsset等同于Load("mainAssetName")  
+ 
+	PS.重复Load同一个资源并不会开辟新的内存来存储这个资源
+ 
+【五，其他】
+ 
+	在使用AssetBundle的开发过程中，我们经常会对资源进行调整，调整之后需要对资源进行打包才能生效，对开发效率有很大的影响，所以在开发中我们使用Resource和Bundle兼容的方式
+ 
+	首先将资源管理封装到一个Manager中，从Bundle中Load资源还是从Resource里面Load资源，都由它决定，这样可以保证上层逻辑代码不需要关心当前的资源管理类型
+ 
+	当然，我们所有要打包的对象，都在Resource目录下，并且使用严格的目录规范，然后使用脚本对象，来记录每个资源所在的Bundle，以及所对应的Resource目录，在资源发生变化的时候，更新脚本对象，Manager在运行时使用脚本对象的配置信息，这里的脚本对象我们是使用代码自动生成的，当然，你也可以用配置表，效果也是一样的
+ 
+	版本管理也可以交由脚本对象来实现，每次打包的资源，需要将其版本号+1，脚本对象可存储所有资源的版本号，版本号可以用于LoadFromCacheOrDownload时传入，也可以手动写入配置表，在我设计的脚本对象中，每个资源都会有一个所属Bundle，Resource下相对路径，版本号等三个属性
+ 
+	在版本发布的时候，你需要先打包一次Bundle，并且将Resource目录改成其他的名字，然后再打包，确保Resource目录下的资源没有被重复打包，而如果你想打的是Resource版本，则需要将StreamingAssets下的Bundle文件删除
+ 
+	脚本对象的使用如下：
+	1.先设计好存储结构
+	2.写一个继承于ScriptObject的类，用可序列化的容器存储数据结构（List或数组），Dictionary等容器无法序列化，public之后在
+
+[Serializable]
+public class ResConfigData
+{
+	public string ResName; //资源名字
+	public string BundleName; //包名字
+	public string Path; //资源路径
+	public int Vesrion; //版本号
+}
+ 
+[System.Serializable]
+public class ResConfig : ScriptableObject
+{
+	public List<ResConfigData> ConfigDatas = new List<ResConfigData>();
+}
+
+	4.在指定的路径读取对象，读取不到则创建对象
+
+ResConfig obj = (ResConfig)AssetDatabase.LoadAssetAtPath(path, typeof(ResConfig));
+if (obj == null)
+{
+   obj = ScriptableObject.CreateInstance<ResConfig>();
+   AssetDatabase.CreateAsset(obj, path);
+}
+
+	3.写入数据，直接修改obj的数组，并保存（不保存下次启动Unity数据会丢失）
+ 
+EditorUtility.SetDirty(obj);
+
+	由于数组操作不方便，所以我们可以将数据转化为方便各种增删操作的Dictionary容器存储，在保持时将其写入到持久化的容器中
+
+
+
+

@@ -1,0 +1,39 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-07-21T11:19:49+08:00
+
+====== Cook-Torrance 光照模型 ======
+Created 星期四 21 七月 2016
+
+1981 年，Robert L. Cook 和Kenneth E. Torrance 发表了名为“A Reflectance Model For Computer Graphics”的论文，首次提出了Cook-Torrance 光照模型。
+
+Cook-Torrance 光照模型将物体粗糙表面（rough surface）看作由很多微小平面（微平面）组成，每一个微平面都被看作一个理想的镜面反射体，物体表面的粗糙度由微平面斜率的变化来衡量。一个粗糙表面由一系列斜率变化很大的微平面组成，而在相对平滑的表面上微平面斜率变化较小。
+
+Cook-Torrance 模型将光分为两个方面考虑：漫反射光强和镜面反射光强。
+
+{{./1.png}}
+
+其中 Idiff 是漫反射光强，该部分的计算方法和前面所讲的相同， kIR 是镜面反射光强的计算方法。从公式可以看出：cook-Torrance 模型与phong、blinn-phong 模型的不同之处在于 Rs 的计算方法。实际上，cook-Torrance、phong和blinn-phong 三种光照模型的本质区别都在于“使用不同数学表达式计算 Rs ”。Rs 在英文中称之为“specular term”。
+
+{{./2.png}}
+
+F 是Fresnel 反射系数（Fresnel reflect term），表示反射方向上的光强占原始光强的比率；D 表示微平面分布函数（Beckmann distribution factor），返回的是“给定方向上的微平面的分数值”； G 是几何衰减系数（Geometric attenuation term），衡量微平面自身遮蔽光强的影响。N 、V 、L 分别表示法向量、视线方向（从顶点到视点）和入射光方向（从顶点向外）。
+
+schlick 给出了Fresnel 反射系数的一个近似，精度在1%范围内，如下所示：
+
+{{./3.png}}
+f0 为入射角度接近0（入射方向靠近法向量）时的Fresnel 反射系数，V 是指向视点的向量，H 为半角向量。
+
+微平面分布函数：根据给定的半角向量H，微平面分布函数返回微平面的分数值。最常使用的微平面分布函是Backmann 分布函数：
+{{./4.png}}
+m 值用于度量表面的粗糙程度，较大的m 值对应于粗糙平面，较小的m 值对应与较光滑的表面；α 是顶点法向量N 和半角向量H 的夹角。其中
+{{./5.png}}
+所以Backmann 微平面分布函数的最终数学表达为:
+{{./6.png}}
+微平面上的入射光，在到达一个表面之前或被该表面反射之后，可能会被相邻的微平面阻挡，未被遮挡的光随机发散，最终形成了表面漫反射的一部分。这种阻挡会造成镜面反射的轻微昏暗，可以用几何衰减系数来衡量这种影响。
+
+微平面上反射的光可能出现三种情况：入射光未被遮挡，此时到达观察者的光强为1；入射光部分被遮挡；反射光部分被遮挡。几何衰减系数被定义为,到达观察者的光的最小强度。所以：
+{{./7.png}}
+综上所述，Cook-Torrance 光照模型的specular term 的最终数学表达为：
+{{./8.png}}
+

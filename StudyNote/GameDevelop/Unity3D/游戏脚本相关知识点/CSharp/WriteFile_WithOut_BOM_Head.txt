@@ -1,0 +1,49 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-01-31T23:59:14+08:00
+
+====== WriteFile WithOut BOM Head ======
+Created 星期日 31 一月 2016
+
+BOM的基本概念
+
+在UCS 编码中有一个叫做"ZERO WIDTH NO-BREAK SPACE"的字符，它的编码是FEFF。而FFFE在UCS中是不存在的字符，所以不应该出现在实际传输中。UCS规范建议我们在传输字节流前，先传输字符"ZERO WIDTH NO-BREAK SPACE"。这样如果接收者收到FEFF，就表明这个字节流是Big-Endian的；如果收到FFFE，就表明这个字节流是Little-Endian的。因此字符"ZERO WIDTH NO-BREAK SPACE"又被称作BOM。
+
+UTF-8中的BOM
+
+UTF-8不需要BOM来表明字节顺序，但可以用BOM来表明编码方式。字符"ZERO WIDTH NO-BREAK SPACE"的UTF-8编码是EF BB BF。所以如果接收者收到以EF BB BF开头的字节流，就知道这是UTF-8编码了。
+
+UTF-8编码的文件中，BOM占三个字节。如果用记事本把一个文本文件另存为UTF-8编码方式的话，用UE打开这个文件，切换到十六进制编辑状态就可以看到开头的FFFE了。这是个标识UTF-8编码文件的好办法，软件通过BOM来识别这个文件是否是UTF-8编码。
+
+对于含BOM头的UTF8文件，前三个字节是\xEF\xBF\xBD，某些软件对于不包含BOM头格式的文件识别存在问题，而有些软件对于有BOM头的文件解析有问题。所以这个问题要区别对待，我们可以在Notepad++里进行转换。
+
+C#写文件时指定是否有BOM
+
+下面是C#在写文件时指定BOM头的代码：
+
+var utf8WithBom = new System.Text.UTF8Encoding(true);  // 用true来指定包含bom
+StreamWriter swr = null;
+try
+{
+	swr = new StreamWriter("okbase.txt", false, utf8WithBom);
+	swr.Write("hello okbase.net!");
+}
+catch(Exception e)
+{
+}
+finally
+{
+	if (swr != null)
+	{
+		swr.Close();
+		swr.Dispose();
+	}
+}
+
+下面的代码是不需要BOM:
+
+var utf8WithoutBom = new System.Text.UTF8Encoding(false);
+using (var sink = new StreamWriter("Foobar.txt", false, utf8WithoutBom))
+{
+	sink.WriteLine("...");
+}

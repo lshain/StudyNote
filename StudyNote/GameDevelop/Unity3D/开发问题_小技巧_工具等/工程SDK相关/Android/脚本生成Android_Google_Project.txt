@@ -1,0 +1,22 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-11T17:52:17+08:00
+
+====== 脚本生成Android Google Project ======
+Created 星期三 11 一月 2017
+
+一般安卓自动化打包直接会生成个APK出来，但是我不想生成APK，我想生成Eclipse项目。 然后在自动化完成后面的打包工作。
+
+using UnityEngine;
+using System.Collections;
+using UnityEditor;
+ 
+public class NewBehaviourScript : Editor {
+ 
+	[MenuItem("Tools/Build Google Project")]
+	static public void BuildAssetBundles(){
+		BuildPipeline.BuildPlayer(new string[]{ "Assets/Untitled.unity"} , Application.dataPath + "/../", BuildTarget.Android, BuildOptions.AcceptExternalModificationsToPlayer);
+	}
+}
+
+参数2就是导出的Eclipse路径 ，这里我放在与Assets平级目录下。

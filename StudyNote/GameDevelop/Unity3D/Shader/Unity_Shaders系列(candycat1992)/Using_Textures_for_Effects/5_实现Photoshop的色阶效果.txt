@@ -1,0 +1,149 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-06-17T15:13:55+08:00
+
+====== 5 实现Photoshop的色阶效果 ======
+Created 星期五 17 六月 2016
+
+转自：http://blog.csdn.net/candycat1992/article/details/21228945
+
+=== 准备工作 ===
+和以前一样，你需要创建一个新的Shader和Material，可以叫做PhotoshopLevels，并把使用了Shader的Material赋给场景中的某一个物体。除此之外，你还需要一个原帖图，来测试我们的色阶效果。你也可以使用本书资源中的/Unity Shaders and Effects Cookbook/5084_Code/Unity assets/5084_02_UnityAssets/Textures/Chapter02_MetalFloorsRusted0041_1_S.jpg。如下图所示：
+{{./1.jpg}}
+
+=== 实现 ===
+1. 向Shader添加下列新的properties：
+Properties {  
+	_MainTex ("Base (RGB)", 2D) = "white" {}  
+      
+	//Add the Input Levels Values  
+	_inBlack ("Input Black", Range(0, 255)) = 0  
+	_inGamma ("Input Gamma", Range(0, 2)) = 1.61  
+	_inWhite ("Input White", Range(0, 255)) = 255  
+      
+	//Add the Output Levels  
+	_outWhite ("Output White", Range(0, 255)) = 255  
+	_outBlack ("Output Black", Range(0, 255)) = 0  
+}
+
+2. 在CGPROGRAM命令下声明上述各个properties的变量：
+CGPROGRAM  
+#pragma surface surf Lambert  
+  
+sampler2D _MainTex;  
+  
+//Add these variables  
+//to the CGPROGRAM  
+float _inBlack;  
+float _inGamma;  
+float _inWhite;  
+float _outWhite;  
+float _outBlack;
+
+3. 创建一个新的函数float GetPixelLevel(float pixelColor)，它的参数为原帖图RGB通道中一个通道的像素值，返回经过调整色阶后的新的该通道像素值。
+float GetPixelLevel(float pixelColor)  
+{  
+	float pixelResult;  
+	pixelResult = (pixelColor * 255.0);  
+	pixelResult = max(0, pixelResult - _inBlack);  
+	pixelResult = saturate(pow(pixelResult / (_inWhite - _inBlack), _inGamma));  
+	pixelResult = (pixelResult * (_outWhite - _outBlack) + _outBlack)/255.0;      
+	return pixelResult;  
+}
+
+4. 修改surf函数，重新计算RGB通道的像素值。
+//Create a variable to store     
+//a pixel channel from our _MainTex texture  
+float outRPixel  = GetPixelLevel(c.r);  
+float outGPixel = GetPixelLevel(c.g);  
+float outBPixel = GetPixelLevel(c.b); 
+
+5. 最后，输出新的像素值。
+o.Albedo = float3(outRPixel,outGPixel,outBPixel);
+
+最后完整的代码如下：
+Shader "Custom/PhotoshopLevels" {  
+	Properties {  
+		_MainTex ("Base (RGB)", 2D) = "white" {}  
+          
+		//Add the Input Levels Values  
+		_inBlack ("Input Black", Range(0, 255)) = 0  
+		_inGamma ("Input Gamma", Range(0, 2)) = 1.61  
+		_inWhite ("Input White", Range(0, 255)) = 255  
+          
+		//Add the Output Levels  
+		_outWhite ("Output White", Range(0, 255)) = 255  
+		_outBlack ("Output Black", Range(0, 255)) = 0  
+	}  
+	SubShader {  
+		Tags { "RenderType"="Opaque" }  
+		LOD 200  
+          
+		CGPROGRAM  
+		#pragma surface surf Lambert  
+  
+		sampler2D _MainTex;  
+          
+		//Add these variables  
+		//to the CGPROGRAM  
+		float _inBlack;  
+		float _inGamma;  
+		float _inWhite;  
+		float _outWhite;  
+		float _outBlack;  
+  
+		struct Input {  
+			float2 uv_MainTex;  
+		};  
+  
+		float GetPixelLevel(float pixelColor)  
+		{  
+			float pixelResult;  
+			pixelResult = (pixelColor * 255.0);  
+			pixelResult = max(0, pixelResult - _inBlack);  
+			pixelResult = saturate(pow(pixelResult / (_inWhite - _inBlack), _inGamma));  
+			pixelResult = (pixelResult * (_outWhite - _outBlack) + _outBlack)/255.0;      
+			return pixelResult;  
+		}  
+          
+		void surf (Input IN, inout SurfaceOutput o) {  
+			half4 c = tex2D (_MainTex, IN.uv_MainTex);  
+              
+			//Create a variable to store      
+			//a pixel channel from our _MainTex texture  
+			float outRPixel  = GetPixelLevel(c.r);  
+              
+			float outGPixel = GetPixelLevel(c.g);  
+              
+			float outBPixel = GetPixelLevel(c.b);  
+              
+			o.Albedo = float3(outRPixel,outGPixel,outBPixel);  
+			o.Alpha = c.a;  
+		}  
+		ENDCG  
+	}   
+	FallBack "Diffuse"  
+}
+
+前后效果对比如下所示（左边为使用Diffuse Shader，右边为使用PhotoshopLevels Shader）：
+{{./2.png}}
+{{./3.png}}
+
+=== 解释 ===
+以float outRPixel  = GetPixelLevel(c.r);一句为例。
+
+GetPixelLevel函数接受c.r作为输入参数。由于tex2D得到的值范围在0.0到1.0之间，我们需要将其映射到0.0到255.0之间：
+
+pixelResult = (pixelColor * 255.0);  
+
+然后，我们减去_inBlack属性值，来使像素变暗。我们还要确保减去后的值不会小于0.0，因此使用max函数。
+
+pixelResult = max(0, pixelResult - _inBlack);
+
+接下来，我们用(_inWhite - _inBlack)来得到新的white point值，并和pixelResult做除法。这相比与我们直接除以_inWhite，会调高像素的亮度，使它变得更亮。 然后使用_inGamma进行乘方操作。
+
+pixelResult = saturate(pow(pixelResult / (_inWhite - _inBlack), _inGamma));  
+
+最后，我们使用_outWhite和_outBlack来修改像素值，以便可以从全局上控制最小像素值（_outBlack）和最大像素值（_outWhite）。得到的结果需要除以255.0，来使得输出值的范围重新映射到0.0到1.0。
+
+pixelResult = (pixelResult * (_outWhite - _outBlack) + _outBlack)/255.0;  

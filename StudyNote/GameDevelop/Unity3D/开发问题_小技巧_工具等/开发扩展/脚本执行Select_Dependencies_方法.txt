@@ -1,0 +1,25 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-01-10T15:36:13+08:00
+
+====== 脚本执行Select Dependencies 方法 ======
+Created 星期二 10 一月 2017
+
+在编辑器下要找一个Prefab的依赖情况，我们会右键Prefab 选择Select Dependencies选项，接着在右边inspector视图中就会看到这个Prefab被那些资源所依赖。但是如果我想通过脚本执行来执行这个方法该如何呢？
+
+{{./1.png}}
+
+代码是这样的。
+	[MenuItem("Window/Search")]
+	static void  Search () 
+	{
+		//参数是数组，可以同时查找多个prefab
+		string []paths = AssetDatabase.GetDependencies(new string[]{"Assets/Resources/Prefab.prefab"});
+		foreach(string path in paths){
+			Debug.Log(path);
+		}
+ 
+	}
+
+另外，EditorUtility.CollectDependencies方法也可以来查找依赖，但是我测试发现会找到重复项。用上面的方法就OK了。
+

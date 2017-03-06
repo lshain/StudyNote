@@ -1,0 +1,125 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2016-08-16T00:07:10+08:00
+
+====== 观察者模式 ======
+Created 星期二 16 八月 2016
+
+观察者模式：定义了一种一对多的依赖关系，让多个观察者对象同时监听某一个主题对象。这个主题对象在状态上发生变化时，会通知所有观察者对象，让他们能够自动更新自己 。以下是例子：
+
+public abstract class Citizen {  
+	List pols;
+
+	String help="normal";
+
+	public void setHelp(String help){
+		this.help = help; 
+	}
+
+	public String getHelp(){
+		return this.help; 
+	}
+
+	public abstract void sendMessage(String help);
+
+	public void setPolicemen(){
+		this.pols = new ArrayList(); 
+	}
+
+	public void register(Policeman pol){
+		this.pols.add(pol); 
+	}
+
+	public void unRegister(Policeman pol){
+		this.pols.remove(pol); 
+	} 
+}
+
+public class TianHeCitizen extends Citizen {
+	public TianHeCitizen(Policeman pol){
+		//创建ArrayList对象
+		setPolicemen();
+
+		//把Policeman变量添加到ArrayList中
+		register(pol); 
+	}
+
+	public void sendMessage(String help) {
+		setHelp(help);
+
+		for(int i=0;i<pols.size();i++){
+			Policeman pol = (Policeman) pols.get(i);
+			//通知警察行动
+			pol.action(this); 
+		} 
+	} 
+}
+
+public class HuangPuCitizen extends Citizen{
+	public HuangPuCitizen(Policeman pol){
+		setPolicemen();
+		register(pol); 
+	}
+
+	public void sendMessage(String help) {
+		setHelp(help);
+
+		for(int i=0;i<pols.size();i++){
+			Policeman pol = (Policeman) pols.get(i);
+
+			//通知警察行动
+			pol.action(this); 
+		} 
+	} 
+}
+
+//担当观察者 
+public interface Policeman {  
+	void action(Citizen ci); 
+}
+
+public class TianHePoliceman implements Policeman{
+	public void action(Citizen ci) {
+		String help = ci.getHelp();
+		if(help.equals("normal")){
+			System.out.println("一切正常，不用出动"); 
+		}
+
+		if(help.equals("unnormal")){
+			System.out.println("有犯罪行为，天河警察出动"); 
+		} 
+	} 
+} 
+
+public class HuangPuPoliceman implements Policeman{
+	public void action(Citizen ci) {
+		String help = ci.getHelp();
+
+		if(help.equals("normal")){
+			System.out.println("一切正常，不用出动"); 
+		}
+
+		if(help.equals("unnormal")){
+			System.out.println("有犯罪行为，黄埔警察出动"); 
+		} 
+	} 
+}
+
+ //测试类 
+public class Test {  
+	public static void main(String args[]){
+		Policeman thPol = new TianHePoliceman();
+		Policeman hpPol = new HuangPuPoliceman();
+
+		Citizen citizen = new HuangPuCitizen(hpPol);
+		citizen.sendMessage("unnormal");
+		citizen.sendMessage("normal");
+
+		System.out.println("============");
+
+		citizen = new TianHeCitizen(thPol);
+		citizen.sendMessage("normal");
+		citizen.sendMessage("unnormal"); 
+	}
+}
+

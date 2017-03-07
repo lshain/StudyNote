@@ -1,4 +1,4 @@
 sceneSetups:
-- path: Assets/StudyProject/Diffuse/PerPixelDiffuse/Scene.unity
+- path: Assets/FrameWork/CustomShader/Specular/PerPixelSpecular/Scene.unity
   isLoaded: 1
   isActive: 1

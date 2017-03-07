@@ -1,4 +1,4 @@
 sceneSetups:
-- path: Assets/FrameWork/CustomShader/Specular/PerPixelSpecular/Scene.unity
+- path: Assets/FrameWork/CustomShader/Texture/SingleTexture/Scene.unity
   isLoaded: 1
   isActive: 1

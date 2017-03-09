@@ -5,3 +5,8 @@ Creation-Date: 2016-03-27T23:41:22+08:00
 ====== Shader ======
 Created 星期日 27 三月 2016
 
+已经了解过的内容：
+1. 漫反射  (Lambert，HalfLambert)
+2. 高光 (Phong，BlinnPhong)
+3. 单张纹理贴图(SingleMapping)
+4. 法线贴图（凹凸贴图）(NormalMapping) - 切线空间计算 光照 ，模型法线数据存储的是 切线空间中的 法线方向

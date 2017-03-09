@@ -1,0 +1,9 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-03-08T17:39:13+08:00
+
+====== AssetsBundle错误相关 ======
+Created 星期三 08 三月 2017
+
+1. AssetBundle loading failed because the "xxx" script serialization hash does not match. 
+prefable 里面 记录了 script 里面的 public 等 信息， 可在检视面板中看到的属性， 如果更改了 script 会导致，热更新时，bundle加载失败， 因为老包里面的脚本的 public属性不一致。

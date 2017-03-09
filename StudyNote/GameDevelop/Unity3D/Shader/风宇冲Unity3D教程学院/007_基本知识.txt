@@ -1,0 +1,153 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-03-09T16:38:06+08:00
+
+====== 007 基本知识 ======
+Created 星期四 09 三月 2017
+
+转自：http://blog.sina.com.cn/s/blog_471132920101dcnr.html
+
+以下内容不需要入门的时候立刻阅读和理解，建议逐渐深入学习后，不时回来看看即可。
+
+=== 什么是GPU? ===
+GPU:Graphic Processing Unit，中文翻译为“图形处理器”。显卡包括（GPU,显存，显卡BIOS,显卡PCB板）。
+
+=== 什么是Shader? ===
+Shader程序:GPU执行的，针对3D对象进行操作的程序。
+
+=== Shader有哪几种？ ===
+CG：与DirectX 9.0以上以及OpenGL 完全兼容。运行时或事先编译成GPU汇编代码。
+HLSL: 主要用于Direct3D。平台:windows。
+GLSL: 主要用于OpenGL。  平台:移动平台（iOS，安卓），mac(only use when you target Mac OS X or OpenGL ES 2.0)
+
+=== 为什么Shader中选择CG? ===
+因为CG/HLSL 比GLSL支持更多的平台。
+
+=== Unity3d里CG输出什么？ ===
+windows平台：Direct3D, GPU汇编代码
+mac:OpenGL GPU汇编代码
+flash:flash GPU汇编代码
+ios/android:unity会将CG转换成GLSL代码。
+总结：也就是除了移动平台会把CG转换成GLSL代码，其余平台都是转换成汇编代码。
+
+=== 什么是缓冲？ ===
+一个像素有如下缓冲
+颜色缓存color buffer/pixel buffer：储存该点即将显示的颜色，RGBA值
+深度缓存depth buffer/z buffer：储存该点的深度,z
+模板缓存stencil buffer：通常用作限制渲染区域。 更高级用法需结合深度缓冲，例如某像素的模板缓冲值会随着其是否通过深度缓冲测试而改变。
+累积缓存Accumulation Buffer: 与颜色缓冲类似，同样储存一个RGBA值。累积缓存是为合成多幅图像而设计的，累积缓存提供了一种在保持好的颜色分辨率下实现在场景中“多重曝光（multiple exposures）”的方法。使用累积缓存可以产生许多图像效果来提高图像的真实性，其中包括：反走样、运动模糊、软阴影、深度域（景深）和卷积。要产生这些效果，必须将图像渲染多次，对场景位置（或所选的物体）进行微小的、渐增的改变，然后累积结果。
+
+=== 什么是图元装配（Primitive Assembly） ===
+经过变换的顶点 被 装配成几何图元
+
+=== 什么是光栅化（又译作栅格化，Rasterization） ===
+栅格化这个术语可以用于任何将矢量图形转换成栅格图像的过程。
+在3D渲染中主要是指， 三角形等图元（矢量）转换成像素碎片的过程。或者说决定哪些像素几何图元覆盖的过程。光栅化的结果是像素位置的集合和片段的集合
+
+=== 什么是光栅操作（Raster Operation） ===
+指在碎片fragment处理后，在更新帧缓存前最后执行的一系列操作。通过包括裁剪，深度测试，alpha测试，alpha混合等。
+
+=== 碎片Fragment等于像素吗？ ===
+像素点：（屏幕上能显示）的最小图像单元
+像素:帧缓存中某个像素点的内容，通常即指颜色。
+碎片：更新像素潜在需要的一个状态。
+碎片输出的是当前的fragment函数在这个像素点的颜色，并不代表这像素点的最终颜色。最后显示的颜色是这个点的所有碎片经过叠加等运算形成的最终结果。
+
+=== 什么是地形着色器（Geometry Shader）: ===
+几何着色器可以从多边形网格中增删顶点。它能够执行对CPU来说过于繁重的生成几何结构和增加模型细节的工作。Direct3D版本10增加了支持几何着色器的API, 成为Shader Model 4.0的组成部分。OpenGL只可通过它的一个插件来使用几何着色器，但极有可能在3.1版本中该功能将会归并。几何着色器的输出连接光栅化器的输入。但是并不实用。
+
+=== 什么是Tessellation(曲面细分)？ ===
+针对DX11.　该技术需要消耗大量硬件资源，因此开发人员不会在场景中的每个地方都使用它，一般只考虑玩家视角近景和轮廓边缘。利用GPU硬件加速，将现有3D模型的三角形拆分得更细小、更细致，也就是大大增加三角形数量，使得渲染对象的表面和边缘更平滑、更精细。
+
+=== 坐标系 ===
+计算机3D中，3D坐标系采用的主要是，笛卡儿坐标系（Cartesian坐标系），也称直角坐标系。
+当x轴朝右，y朝上，z朝屏幕里的时候，为左手坐标系。
+当x轴朝右，y朝上，z朝屏幕外即面朝你的时候，为右手坐标系。
+所以，Unity使用的是左手坐标系。
+D3D左手 即 裁剪空间里（x,y,z,w） z= z/w   即[0,1]
+OpenGL使用右手 ，即 裁剪空间里（x,y,z,w） z= (z/w + 1)/2 即[-1,1]
+
+=== #pragma target 3.0    ：定义Shader模型为Shader Model 3.0, ===
+2.0， Direct3D 9 (默认缺省值)。支持32张贴图 + 64个计算
+3.0， Direct3D 9。支持512张贴图 + 512个计算
+4.0， 只支持DirectX 11。
+5.0， 只支持DirectX 11。
+
+=== 【Unity Shader内置矩阵】 ===
+UNITY_MATRIX_MVP        当前模型视图投影矩阵
+UNITY_MATRIX_MV           当前模型视图矩阵
+UNITY_MATRIX_V              当前视图矩阵。
+UNITY_MATRIX_P              目前的投影矩阵
+UNITY_MATRIX_VP            当前视图*投影矩阵
+UNITY_MATRIX_T_MV       模型视图矩阵的 转置
+UNITY_MATRIX_IT_MV      模型视图矩阵的 逆转置
+UNITY_MATRIX_TEXTURE0   UNITY_MATRIX_TEXTURE3          纹理变换矩阵
+
+注意：View矩阵并不是相机的matrix（xy一致，z是反的，也就是相机下的子物体（1,1,1）在UNITY_MATRIX_MV实际是（1,1,-1））
+
+=== 【Unity Vertex Data】 ===
+Unity顶点函数的输入数据 appdata 在UnityCG.cginc中定义，有以下三种
+
+【1 appdata_base】
+位置vertex，法线normal，贴图uv texcoord
+
+struct appdata_base {
+	float4 vertex : POSITION;
+	float3 normal : NORMAL;
+	float4 texcoord : TEXCOORD0;
+};
+
+
+【2 appdata_tan】
+位置vertex，法线normal，切线tangent 贴图uv texcoord
+
+struct appdata_tan {
+	float4 vertex : POSITION;
+	float4 tangent : TANGENT;
+	float3 normal : NORMAL;
+	float4 texcoord : TEXCOORD0;
+};
+
+
+【3 appdata_full】
+位置vertex，法线normal，切线tangent 贴图uv texcoord  顶点颜色color    
+
+struct appdata_full {
+	float4 vertex : POSITION;
+	float4 tangent : TANGENT;
+	float3 normal : NORMAL;
+	float4 texcoord : TEXCOORD0;
+	float4 texcoord1 : TEXCOORD1;
+	float4 texcoord2 : TEXCOORD2;
+	float4 texcoord3 : TEXCOORD3;
+#if defined(SHADER_API_XBOX360)
+	half4 texcoord4 : TEXCOORD4;
+	half4 texcoord5 : TEXCOORD5;
+#endif
+	fixed4 color : COLOR;
+};
+
+【自定义struct】
+:变量后面加semantics即可
+POSITION
+NORMAL
+TEXCOORD0-6
+TANGENT
+COLOR
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

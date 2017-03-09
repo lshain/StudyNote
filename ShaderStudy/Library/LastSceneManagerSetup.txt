@@ -1,4 +1,4 @@
 sceneSetups:
-- path: Assets/FrameWork/CustomShader/TextureMapping/NormalMapping/Scene.unity
+- path: Assets/FrameWork/CustomShader/Demo/BlinkLogo/Scene.unity
   isLoaded: 1
   isActive: 1

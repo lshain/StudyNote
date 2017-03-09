@@ -1,0 +1,34 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-03-09T16:30:26+08:00
+
+====== 006 学习方法及技巧 ======
+Created 星期四 09 三月 2017
+
+转自：http://blog.sina.com.cn/s/blog_471132920101dep1.html
+
+=== 学习方法 ===
+(1)由简入繁：自己写Shader,从最简单写起，简单的测试通过了，再一点点往里加。
+(2)多调试：例如，有一个float变量x。假如x范围是[0,1],则在frag片段函数里输出 float4(x,0,0,1)的颜色，以红色的深浅来观察x的值；如果x范围是[0,1000],则可在frag片段函数里输出 float4(x/1000,0,0,1)的颜色。方法就这么简单，具体根据需要去调整。
+(3)结合查看UnityCG.cginc等文件,以及unity的自带Shader，即Build-in Shader。
+(4)看看书：建议看本教程的同时，多看看书。推荐英文的The CG Tutorial，也就是中文版的Cg教程_可编程实时图形权威指南
+
+=== 学习小技巧 ===
+(1)查看UnityCG.cginc等文件
+使用Vertex and Fragment的CG时，会#include "UnityCG.cginc",用到里面的很多函数，如TRANSFORM_TEX，UNITY_TRANSFER_DEPTH等函数的定义。那么怎么查看这些定义呢？
+
+windows路径：Unity\Editor\Data\CGIncludes
+mac路径:右键点击unity图标->show contents->Data->CGIncludes
+该文件夹下有Unity关于Shader的库，如UnityCG.cginc，UnityCG.glslinc,Lighting.cginc等。打开
+UnityCG.cginc（写字板MONODev等均可），后即可查看相关函数的定义。
+
+(2)电子书的学习技巧
+中文电子书，学起来快，好理解，但大多数是影印版。
+英文电子书，可以很好的用关键词搜索知识点。
+
+(3)使用#prama only_renderers d3d9 ， 限定编译平台。(3)(4)配合使用效果更好
+
+(4)打开编译后的Shader,查看对应的汇编代码或者OpenGL ES代码。
+方法：左键单机shader文件，然后在Inspector面板里点击Open Compiled Shader.
+{{./1.jpg}}
+

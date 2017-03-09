@@ -1,0 +1,93 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-03-09T13:30:14+08:00
+
+====== 002 Fixed Function Shader ======
+Created 星期四 09 三月 2017
+
+转自：http://blog.sina.com.cn/s/blog_471132920101d5of.html
+
+Fixed function shader简介：  
+	属于固定渲染管线 Shader, 基本用于高级Shader在老显卡无法显示时的情况。使用的是ShaderLab语言，语法与微软的FX files 或者NVIDIA的 CgFX类似。
+
+例一：显示单一颜色
+下面我们来看第一个例子，显示单一颜色，注释写得挺详细了，照着格式写即可。
+{{./1.png}}
+	//根Shader
+	Shader "Custom/1_1color" {
+	   // 属性
+		Properties {
+			//定义一个颜色
+			_Color ("Main Color", Color) = (1,.5,.5,1)
+		}
+		// 子shader
+		SubShader {
+			Pass {
+				Material {
+					//显示该颜色
+					Diffuse [_Color]
+				}
+				//打开光照开关，即接受光照
+				Lighting On
+			}
+		}
+	}
+
+
+例二：显示一张贴图
+{{./2.png}}{{./3.png}}
+
+	Shader "Custom/1_2show1texture" {
+		Properties {
+			_MainTex ("Base (RGB)", 2D) = "white" {}
+			_Color("Main color",Color) = (1,1,1,1)
+		}
+		SubShader {
+			Pass
+			{
+				Material
+				{
+					Diffuse[_Color]
+				}
+				Lighting on
+				SetTexture[_MainTex]
+				{
+					//combine color部分，alpha部分
+					//      材质 * 顶点颜色
+					Combine texture * primary,texture * constant
+				}
+			}
+		}
+	}
+
+例三：两张贴图叠加
+{{./4.png}}
+
+	Shader "Custom/1_3merge2texture" {
+		Properties {
+			_MainTex ("Base (RGB)", 2D) = "white" {}
+			_MainTex2 ("Tex2 (RGB)", 2D) = "white" {}
+			_Color("Main color",Color) = (1,1,1,1)
+		}
+		SubShader {
+			Pass
+			{
+				Material
+				{
+					Diffuse[_Color]
+				}
+				Lighting on
+				SetTexture[_MainTex]
+				{
+					//      第一张材质 * 顶点颜色
+					Combine texture * primary
+				}
+				SetTexture[_MainTex2]
+				{
+					//      第二张材质 * 之前累积（这里即第一张材质）
+					Combine texture * previous
+				}
+			}
+		}
+	}
+

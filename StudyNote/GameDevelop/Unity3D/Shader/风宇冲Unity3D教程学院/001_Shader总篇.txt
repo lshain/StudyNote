@@ -1,0 +1,60 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2017-03-09T13:21:35+08:00
+
+====== 001 Shader总篇 ======
+Created 星期四 09 三月 2017
+
+转自：http://blog.sina.com.cn/s/blog_471132920101d5kh.html
+
+引言，在Unity3d里,所有的图形绘制都必须通过Shader，即着色器。一般的使用过程中，我们用到的都是unity自带的Shader,即build-in shader。学习Shader后，自己写的Shader能做出很多你想要的特殊效果,增强游戏的画面表现。例如 水的倒影。 LOGO的光影闪过等等效果等等。
+
+=== Shader的分类 ===
+Shader按管线分类一般分为固定渲染管线与可编程渲染管线
+1）固定渲染管线 ——这是标准的几何&光照(Transforming&Lighting)管线，功能是固定的，它控制着世界、视、投影变换及固定光照控 制和纹理混合。T&L管线可以被渲染状态控制，矩阵，光照和采制参数。功能比较有限。基本所有的显卡都能正常运行。
+2）可编程渲染管线——对渲染管线中的顶点运算和像素运算分别进行编程处理，而无须象固定渲染管线那样套用一些固定函数，取代设置参数来控制管线。
+
+
+=== Unity3d的三种 ===
+Unity的Shader分为三种：
+（1）Fixed function shader   属于固定渲染管线 Shader, 基本用于高级Shader在老显卡无法显示时的Fallback（之后有详细介绍）。使用的是ShaderLab语言，语法与微软的FX files 或者NVIDIA的 CgFX类似。
+（2）Vertex and Fragment Shader  最强大的Shader类型，属于可编程渲染管线. 使用的是CG/HLSL语法。
+（3）Surface Shader Unity3d推崇的Shader类型，使用Unity预制的光照模型来进行光照运算。使用的也是CG/HLSL语法。
+
+=== Unity3d三种Shader对比 ===
+**三种Shader共同点：**
+(1)都必须从唯一一个根Shader开始
+(2)Properties参数部分，作用及语法完全相同
+(3)具体功能都在SubShader里(Subshader: 子Shader,Shader会自上而下运行第一个硬件能支持的Subshader，主要作用是对不用硬件的支持。)
+(4)都可以打标签，例如Tags { "RenderType" = "Opaque" }    LOD 200     以及Lighting On等
+(5)都可以Fallback
+(6)都可以处理基本的功能，例如光照漫反射（Diffuse）以及镜面反射（Specular）。但是Vertex and Fragment和Surface都能实现Fixed function实现不了的高级功能，例如基于uv计算的效果等等。
+
+**三种Shader不同点：**
+(1)Fixed function shader以及Vertex and Fragment Shader在subshader下面还有pass{},但是Surface Shader，由于已经将具体内容打包在光照模型了，不能加pass{},加了会报错。
+(2)Fixed function shader每句代码之后没有分号';'   但是V&F shader以及Surface shader每句代码之后都必须加分号';'
+(3)核心结构不同：
+Fixed function shader的核心是
+Material{} 以及 SetTexture[_MainTex]{}
+
+Vertex and Fragment Shader的核心是
+
+	CGPROGRAM
+	#pragma vertex vert
+	#pragma fragment frag          
+	#include "UnityCG.cginc"
+	ENDCG
+
+Surface Shader的核心是
+
+（1）这套用的是Unity3d自带光照模型Lambert，也不做顶点处理，那么只需要一个表面处理函数surf即可
+CGPROGRAM
+#pragma surface surf Lambert
+ENDCG
+或者（2）这套表示使用的是自己写的光照模型lsyLightModel，并且使用了顶点处理函数vert
+
+CGPROGRAM
+//      surface 表面处理函数   光照模型函数      顶点处理:函数
+#pragma surface  surf         lsyLightModel      vertex:vert
+//执行顺序   顶点处理函数 -> 表面处理函数 -> 光照模型函数 ->颜色值
+ENDCG    
